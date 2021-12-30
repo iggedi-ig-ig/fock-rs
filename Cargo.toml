@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "basis",
+    "boys"
+]
+resolver = "2"
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+debug = true
