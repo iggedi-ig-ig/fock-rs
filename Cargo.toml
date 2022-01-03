@@ -3,7 +3,7 @@ members = [
     "basis",
     "boys",
     "scf_cylce",
-    "basis_set"
+    "basis_set",
 ]
 resolver = "2"
 

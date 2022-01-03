@@ -1,13 +1,16 @@
 #![allow(dead_code)]
 
+pub mod atom;
 pub mod basis_sets;
+pub mod periodic_table;
 
+use crate::atom::Atom;
+use crate::periodic_table::AtomType;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::primitives::GaussianPrimitive;
 use nalgebra::Vector3;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 
 #[derive(Deserialize, Debug)]
 pub struct MolssiBseSchema {
@@ -59,7 +62,7 @@ pub struct BasisSet {
     molssi_bse_schema: MolssiBseSchema,
     revision_description: String,
     revision_date: String,
-    elements: HashMap<String, ElectronicConfiguration>,
+    elements: HashMap<AtomType, ElectronicConfiguration>,
     version: String,
     function_types: Vec<FunctionType>,
     names: Vec<String>,
@@ -70,51 +73,14 @@ pub struct BasisSet {
     name: String,
 }
 
-#[derive(Clone, Debug)]
-pub struct Atom {
-    position: Vector3<f64>,
-    ordinal: usize,
-    oxidation_state: i32,
-    basis: Vec<ContractedGaussian>,
-}
-
-impl Atom {
-    pub fn new(
-        position: Vector3<f64>,
-        ordinal: usize,
-        basis: Vec<ContractedGaussian>,
-        oxidation_state: i32,
-    ) -> Self {
-        Self {
-            position,
-            ordinal,
-            oxidation_state,
-            basis,
-        }
-    }
-
-    pub fn position(&self) -> Vector3<f64> {
-        self.position
-    }
-    pub fn ordinal(&self) -> usize {
-        self.ordinal
-    }
-    pub fn basis(&self) -> &[ContractedGaussian] {
-        &self.basis
-    }
-    pub fn num_electrons(&self) -> usize {
-        (self.ordinal as i32 + self.oxidation_state) as usize
-    }
-}
-
 impl BasisSet {
     pub fn get(
         &self,
         position: Vector3<f64>,
-        ordinal: usize,
-        oxidation_state: i32,
+        atom_type: AtomType,
+        oxidation_state: i8,
     ) -> Option<Atom> {
-        let config = self.elements.get(&ordinal.to_string());
+        let config = self.elements.get(&atom_type);
         config.map(|config| {
             let mut basis_functions = Vec::new();
             for shell in config.electron_shells.iter() {
@@ -147,29 +113,8 @@ impl BasisSet {
                     }
                 }
             }
-            Atom::new(position, ordinal, basis_functions, oxidation_state)
+            Atom::new(position, atom_type, basis_functions, oxidation_state)
         })
-    }
-}
-
-impl Display for Atom {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Atom Num {} (electrons: {})\n\tPos: {:0.3}, {:0.3}, {:0.3}\n\tBasis Functions:",
-            self.ordinal,
-            self.num_electrons(),
-            self.position.x,
-            self.position.y,
-            self.position.z
-        )?;
-        for (i, contracted_gaussian) in self.basis.iter().enumerate() {
-            writeln!(f, "\t{}:", i)?;
-            for primitive in contracted_gaussian.primitives() {
-                writeln!(f, "\t\t{}", primitive)?;
-            }
-        }
-        Ok(())
     }
 }
 
@@ -177,9 +122,9 @@ impl Display for Atom {
 pub fn test_basis() {
     use crate::basis_sets::BASIS_6_31G;
 
-    if let Some(atom) = BASIS_6_31G.get(Vector3::zeros(), 6, 0) {
+    if let Some(atom) = BASIS_6_31G.get(Vector3::zeros(), AtomType::Phosphorous, 0) {
         println!("{}", atom)
     } else {
-        panic!("Couldn't get hydrogen");
+        panic!("Couldn't get atom");
     }
 }
