@@ -1,0 +1,13 @@
+[package]
+name = "basis_set"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+basis = { path = "../basis" }
+nalgebra = "0.29.0"
+serde = { vesrion = "1.0.132", features = ["serde_derive"] }
+serde_json = "1.0.73"
+lazy_static = "1.4.0"

@@ -4,7 +4,7 @@ pub mod utils;
 
 use nalgebra::Vector3;
 
-trait BasisFunction {
+pub trait BasisFunction {
     /// Overlap integral
     /// <a|b>
     fn overlap_int(a: &Self, b: &Self) -> f64;
@@ -25,4 +25,6 @@ trait BasisFunction {
     /// Electron-Electron repulsion
     /// <ab|cd>
     fn electron_repulsion_int(a: &Self, b: &Self, c: &Self, d: &Self) -> f64;
+
+    fn evaluate(&self, at: &Vector3<f64>) -> f64;
 }

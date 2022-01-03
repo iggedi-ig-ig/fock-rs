@@ -1,7 +1,9 @@
-use nalgebra::Vector3;
+use std::fmt::{Display, Formatter};
+use std::ptr::write;
 
+#[derive(Copy, Clone, Debug)]
 pub struct GaussianPrimitive {
-    angular: Vector3<i32>,
+    angular: [i32; 3],
     exponent: f64,
     coefficient: f64,
 }
@@ -18,8 +20,16 @@ impl GaussianPrimitive {
             )
     }
 
-    pub fn new(angular: Vector3<i32>, exponent: f64, coefficient: f64) -> Self {
-        let norm = Self::norm(angular.into(), exponent);
+    pub fn new_unnormalized(angular: [i32; 3], exponent: f64, coefficient: f64) -> Self {
+        GaussianPrimitive {
+            angular,
+            exponent,
+            coefficient,
+        }
+    }
+
+    pub fn new(angular: [i32; 3], exponent: f64, coefficient: f64) -> Self {
+        let norm = Self::norm(angular, exponent);
         GaussianPrimitive {
             angular,
             exponent,
@@ -28,10 +38,10 @@ impl GaussianPrimitive {
     }
 
     pub fn new_spherical(exponent: f64, coefficient: f64) -> Self {
-        Self::new(Vector3::zeros(), exponent, coefficient)
+        Self::new([0; 3], exponent, coefficient)
     }
 
-    pub fn angular(&self) -> Vector3<i32> {
+    pub fn angular(&self) -> [i32; 3] {
         self.angular
     }
     pub fn exponent(&self) -> f64 {
@@ -40,4 +50,24 @@ impl GaussianPrimitive {
     pub fn coefficient(&self) -> f64 {
         self.coefficient
     }
+}
+
+impl Display for GaussianPrimitive {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:0.4}*", self.coefficient)?;
+        for (i, angular) in self.angular.into_iter().enumerate() {
+            if angular > 1 {
+                write!(f, "{}^{}*", ['x', 'y', 'z'][i], angular)?;
+            } else if angular > 0 {
+                write!(f, "{}*", ['x', 'y', 'z'][i])?;
+            }
+        }
+        write!(f, "exp(-{:0.4}*r^2)", self.exponent)
+    }
+}
+
+#[test]
+pub fn test_display() {
+    let primitive = GaussianPrimitive::new([2, 1, 0], 0.1266712, 1.0);
+    println!("{}", primitive);
 }

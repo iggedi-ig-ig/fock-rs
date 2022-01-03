@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "basis",
-    "boys"
+    "boys",
+    "scf_cylce",
+    "basis_set"
 ]
 resolver = "2"
 
