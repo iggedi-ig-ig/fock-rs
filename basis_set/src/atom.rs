@@ -7,7 +7,7 @@ use std::fmt::{Display, Formatter};
 pub struct Atom {
     position: Vector3<f64>,
     atom_type: AtomType,
-    oxidation_state: i8,
+    oxidation_state: i32,
     basis: Vec<ContractedGaussian>,
 }
 
@@ -16,7 +16,20 @@ impl Atom {
         position: Vector3<f64>,
         atom_type: AtomType,
         basis: Vec<ContractedGaussian>,
-        oxidation_state: i8,
+    ) -> Self {
+        Self {
+            position,
+            atom_type,
+            oxidation_state: 0,
+            basis,
+        }
+    }
+
+    pub fn new_ion(
+        position: Vector3<f64>,
+        atom_type: AtomType,
+        basis: Vec<ContractedGaussian>,
+        oxidation_state: i32,
     ) -> Self {
         Self {
             position,
