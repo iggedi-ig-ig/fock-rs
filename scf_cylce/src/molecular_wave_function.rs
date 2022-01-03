@@ -1,12 +1,13 @@
+use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use nalgebra::{DMatrix, Vector3};
 
-pub struct MolecularWaveFunction<B: BasisFunction> {
-    basis_functions: Vec<B>,
+pub struct MolecularWaveFunction {
+    basis_functions: Vec<ContractedGaussian>,
     coeff_matrix: DMatrix<f64>,
 }
 
-impl<B: BasisFunction> MolecularWaveFunction<B> {
+impl MolecularWaveFunction {
     const MIN_COEFFICIENT_MAGNITUDE: f64 = 1e-6;
 
     pub fn evaluate(&self, at: Vector3<f64>, energy_level: usize) -> f64 {

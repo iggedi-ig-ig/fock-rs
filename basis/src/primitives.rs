@@ -1,5 +1,4 @@
 use std::fmt::{Display, Formatter};
-use std::ptr::write;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GaussianPrimitive {
@@ -62,7 +61,7 @@ impl Display for GaussianPrimitive {
                 write!(f, "{}*", ['x', 'y', 'z'][i])?;
             }
         }
-        write!(f, "exp(-{:0.4}*r^2)", self.exponent)
+        write!(f, "exp({:0.4}*r^2)", -self.exponent)
     }
 }
 
