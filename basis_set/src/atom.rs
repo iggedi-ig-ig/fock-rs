@@ -1,5 +1,6 @@
 use crate::AtomType;
 use basis::contracted_gaussian::ContractedGaussian;
+use basis::PointCharge;
 use nalgebra::Vector3;
 use std::fmt::{Display, Formatter};
 
@@ -7,7 +8,7 @@ use std::fmt::{Display, Formatter};
 pub struct Atom {
     position: Vector3<f64>,
     atom_type: AtomType,
-    oxidation_state: i32,
+    ion_charge: i32,
     basis: Vec<ContractedGaussian>,
 }
 
@@ -20,7 +21,7 @@ impl Atom {
         Self {
             position,
             atom_type,
-            oxidation_state: 0,
+            ion_charge: 0,
             basis,
         }
     }
@@ -29,12 +30,12 @@ impl Atom {
         position: Vector3<f64>,
         atom_type: AtomType,
         basis: Vec<ContractedGaussian>,
-        oxidation_state: i32,
+        ion_charge: i32,
     ) -> Self {
         Self {
             position,
             atom_type,
-            oxidation_state,
+            ion_charge,
             basis,
         }
     }
@@ -42,14 +43,26 @@ impl Atom {
     pub fn position(&self) -> Vector3<f64> {
         self.position
     }
-    pub fn ordinal(&self) -> usize {
-        self.atom_type as usize
+    pub fn charge(&self) -> f64 {
+        (self.atom_type as usize) as f64
     }
-    pub fn basis(&self) -> &[ContractedGaussian] {
+    pub fn basis(&self) -> &Vec<ContractedGaussian> {
         &self.basis
     }
     pub fn num_electrons(&self) -> usize {
-        (self.atom_type as i32 + self.oxidation_state as i32) as usize
+        ((self.atom_type as usize) as i32 - self.ion_charge) as usize
+    }
+    pub fn atom_type(&self) -> AtomType {
+        self.atom_type
+    }
+    pub fn ion_charge(&self) -> i32 {
+        self.ion_charge
+    }
+    pub fn point_charge(&self) -> PointCharge {
+        PointCharge {
+            position: self.position(),
+            charge: self.charge(),
+        }
     }
 }
 
