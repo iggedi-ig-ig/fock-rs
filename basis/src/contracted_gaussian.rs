@@ -1,7 +1,7 @@
 use crate::primitives::GaussianPrimitive;
 use crate::utils::{coulomb_auxiliary, hermite_expansion};
-use crate::BasisFunction;
-use nalgebra::Vector3;
+use crate::{BasisFunction, PointCharge};
+use nalgebra::{Vector, Vector3};
 
 #[derive(Clone, Debug)]
 pub struct ContractedGaussian {
@@ -201,35 +201,36 @@ impl BasisFunction for ContractedGaussian {
             .sum::<f64>()
     }
 
-    fn nuclear_attraction_int(
+    fn nuclear_attraction_int<I: Iterator<Item = PointCharge>>(
         a: &Self,
         b: &Self,
-        nucleus_pos: &Vector3<f64>,
-        nucleus_charge: f64,
+        nuclei: I,
     ) -> f64 {
         let m = a.primitives.len();
         let n = b.primitives.len();
         let diff = b.position() - a.position();
-        (0..m)
-            .flat_map(move |i| {
-                (0..n).map(move |j| {
-                    let prod_center = a.primitives[i].exponent() * a.position()
-                        + b.primitives[j].exponent() * b.position()
-                            / (a.primitives[i].exponent() + b.primitives[j].exponent());
+        nuclei
+            .flat_map(move |point_charge| {
+                (0..m).flat_map(move |i| {
+                    (0..n).map(move |j| {
+                        let prod_center = a.primitives[i].exponent() * a.position()
+                            + b.primitives[j].exponent() * b.position()
+                                / (a.primitives[i].exponent() + b.primitives[j].exponent());
 
-                    let a = &a.primitives[i];
-                    let b = &b.primitives[j];
+                        let a = &a.primitives[i];
+                        let b = &b.primitives[j];
 
-                    a.coefficient()
-                        * b.coefficient()
-                        * GaussianPrimitive::_nuclear_attraction(
-                            a,
-                            b,
-                            &diff,
-                            &prod_center,
-                            nucleus_pos,
-                            nucleus_charge,
-                        )
+                        a.coefficient()
+                            * b.coefficient()
+                            * GaussianPrimitive::_nuclear_attraction(
+                                a,
+                                b,
+                                &diff,
+                                &prod_center,
+                                &point_charge.position,
+                                point_charge.charge,
+                            )
+                    })
                 })
             })
             .sum::<f64>()
