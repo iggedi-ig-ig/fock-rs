@@ -1,7 +1,7 @@
 use crate::primitives::GaussianPrimitive;
 use crate::utils::{coulomb_auxiliary, hermite_expansion};
 use crate::{BasisFunction, PointCharge};
-use nalgebra::{Vector, Vector3};
+use nalgebra::Vector3;
 
 #[derive(Clone, Debug)]
 pub struct ContractedGaussian {
@@ -74,18 +74,17 @@ impl GaussianPrimitive {
         b: &GaussianPrimitive,
         diff: &Vector3<f64>,
         prod_center: &Vector3<f64>,
-        nucleus_pos: &Vector3<f64>,
-        nucleus_charge: f64,
+        point_charge: &PointCharge,
     ) -> f64 {
         let [l1, m1, n1] = a.angular();
         let [l2, m2, n2] = b.angular();
 
         let p = a.exponent() + b.exponent();
 
-        let diff_comp_nucleus = prod_center - nucleus_pos;
+        let diff_comp_nucleus = prod_center - point_charge.position;
         let dist_sq_comp_nucleus = diff_comp_nucleus.norm_squared();
 
-        -nucleus_charge * std::f64::consts::TAU / p
+        -point_charge.charge * std::f64::consts::TAU / p
             * (0..=l1 + l2)
                 .flat_map(|t| {
                     (0..=m1 + m2).flat_map(move |u| {
@@ -172,12 +171,10 @@ impl GaussianPrimitive {
 
 impl BasisFunction for ContractedGaussian {
     fn overlap_int(a: &Self, b: &Self) -> f64 {
-        let m = a.primitives.len();
-        let n = b.primitives.len();
         let diff = b.position() - a.position();
-        (0..m)
+        (0..a.primitives.len())
             .flat_map(move |i| {
-                (0..n).map(move |j| {
+                (0..b.primitives.len()).map(move |j| {
                     a.primitives[i].coefficient()
                         * b.primitives[j].coefficient()
                         * GaussianPrimitive::_overlap(&a.primitives[i], &b.primitives[j], &diff)
@@ -187,12 +184,10 @@ impl BasisFunction for ContractedGaussian {
     }
 
     fn kinetic_int(a: &Self, b: &Self) -> f64 {
-        let m = a.primitives.len();
-        let n = b.primitives.len();
         let diff = b.position() - a.position();
-        (0..m)
+        (0..a.primitives.len())
             .flat_map(move |i| {
-                (0..n).map(move |j| {
+                (0..b.primitives.len()).map(move |j| {
                     a.primitives[i].coefficient()
                         * b.primitives[j].coefficient()
                         * GaussianPrimitive::_kinetic(&a.primitives[i], &b.primitives[j], &diff)
@@ -201,34 +196,28 @@ impl BasisFunction for ContractedGaussian {
             .sum::<f64>()
     }
 
-    fn nuclear_attraction_int<I: Iterator<Item = PointCharge>>(
-        a: &Self,
-        b: &Self,
-        nuclei: I,
-    ) -> f64 {
+    fn nuclear_attraction_int(a: &Self, b: &Self, nuclei: &[PointCharge]) -> f64 {
         let m = a.primitives.len();
         let n = b.primitives.len();
         let diff = b.position() - a.position();
         nuclei
+            .iter()
             .flat_map(move |point_charge| {
                 (0..m).flat_map(move |i| {
                     (0..n).map(move |j| {
-                        let prod_center = a.primitives[i].exponent() * a.position()
-                            + b.primitives[j].exponent() * b.position()
-                                / (a.primitives[i].exponent() + b.primitives[j].exponent());
-
-                        let a = &a.primitives[i];
-                        let b = &b.primitives[j];
-
-                        a.coefficient()
-                            * b.coefficient()
+                        a.primitives[i].coefficient()
+                            * b.primitives[j].coefficient()
                             * GaussianPrimitive::_nuclear_attraction(
-                                a,
-                                b,
+                                &a.primitives[i],
+                                &b.primitives[j],
                                 &diff,
-                                &prod_center,
-                                &point_charge.position,
-                                point_charge.charge,
+                                &GaussianPrimitive::product_center(
+                                    &a.primitives[i],
+                                    &a.position(),
+                                    &b.primitives[j],
+                                    &b.position(),
+                                ),
+                                point_charge,
                             )
                     })
                 })
@@ -237,47 +226,43 @@ impl BasisFunction for ContractedGaussian {
     }
 
     fn electron_repulsion_int(a: &Self, b: &Self, c: &Self, d: &Self) -> f64 {
-        let m = a.primitives.len();
-        let n = b.primitives.len();
-        let o = c.primitives.len();
-        let p = d.primitives.len();
-
         let diff_ab = b.position() - a.position();
         let diff_cd = d.position() - c.position();
-        (0..m)
+        (0..a.primitives.len())
             .flat_map(move |i| {
-                (0..n).flat_map(move |j| {
-                    (0..o).flat_map(move |tau| {
-                        (0..p).map(move |nu| {
+                (0..b.primitives.len()).flat_map(move |j| {
+                    (0..c.primitives.len()).flat_map(move |k| {
+                        (0..d.primitives.len()).map(move |l| {
                             let a_pos = a.position();
-                            let a = &a.primitives[i];
-
                             let b_pos = b.position();
-                            let b = &b.primitives[j];
-
                             let c_pos = c.position();
-                            let c = &c.primitives[tau];
-
                             let d_pos = d.position();
-                            let d = &d.primitives[nu];
 
-                            let comp_ab = (a_pos * a.exponent() + b_pos * b.exponent())
-                                / (a.exponent() + b.exponent());
-                            let comp_cd = (c_pos * c.exponent() + d_pos * d.exponent())
-                                / (c.exponent() + d.exponent());
+                            let comp_ab = GaussianPrimitive::product_center(
+                                &a.primitives[i],
+                                &a_pos,
+                                &b.primitives[j],
+                                &b_pos,
+                            );
+                            let comp_cd = GaussianPrimitive::product_center(
+                                &c.primitives[k],
+                                &c_pos,
+                                &d.primitives[l],
+                                &d_pos,
+                            );
 
                             let comp_diff = comp_cd - comp_ab;
                             let comp_dist_sq = comp_diff.norm_squared();
 
-                            a.coefficient()
-                                * b.coefficient()
-                                * c.coefficient()
-                                * d.coefficient()
+                            a.primitives[i].coefficient()
+                                * b.primitives[j].coefficient()
+                                * c.primitives[k].coefficient()
+                                * d.primitives[l].coefficient()
                                 * GaussianPrimitive::_electron_repulsion(
-                                    a,
-                                    b,
-                                    c,
-                                    d,
+                                    &a.primitives[i],
+                                    &b.primitives[j],
+                                    &c.primitives[k],
+                                    &d.primitives[l],
                                     &diff_ab,
                                     &diff_cd,
                                     &comp_diff,
