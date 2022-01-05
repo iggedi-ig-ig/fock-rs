@@ -97,7 +97,7 @@ where
                     (0..n_basis)
                         .flat_map(|x| {
                             (0..n_basis).map(move |y| {
-                                density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, y, x, j)])
+                                density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, x, y, j)])
                             })
                         })
                         .sum::<f64>()
@@ -111,7 +111,8 @@ where
             let coeffs = transform_inv(&coeffs_prime);
 
             let new_density = DMatrix::from_fn(n_basis, n_basis, |i, j| {
-                2.0 * (0..n_elecs / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
+                2.0 * (0..(n_elecs + 1) / 2)
+                    .fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
             let density_rms = density
@@ -119,9 +120,7 @@ where
                 .sqrt()
                 / n_basis as f64;
 
-            // println!("Iteration {}: rms: {:0.5e}", iteration, density_rms);
             if density_rms < epsilon {
-                // println!("Converged!");
                 let electronic_energy = 0.5 * (&new_density * (&core_hamiltonian + &fock)).trace();
 
                 return Some(HartreeFockResult {
