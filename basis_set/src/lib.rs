@@ -74,47 +74,44 @@ pub struct BasisSet {
 }
 
 impl BasisSet {
-    pub fn get(
-        &self,
-        position: Vector3<f64>,
-        atom_type: AtomType,
-        electron_balance: i32,
-    ) -> Option<Atom> {
+    pub fn get(&self, position: Vector3<f64>, atom_type: AtomType, electron_balance: i32) -> Atom {
         let config = self.elements.get(&atom_type);
-        config.map(|config| {
-            let mut basis_functions = Vec::new();
-            for shell in config.electron_shells.iter() {
-                for (idx, angular) in shell.angular_momentum.iter().enumerate() {
-                    let angulars = (0..=*angular)
-                        .flat_map(|x| {
-                            (0..=*angular).flat_map(move |y| {
-                                (0..=*angular).filter_map(move |z| {
-                                    if x + y + z == *angular {
-                                        Some([x, y, z])
-                                    } else {
-                                        None
-                                    }
+        config
+            .map(|config| {
+                let mut basis_functions = Vec::new();
+                for shell in config.electron_shells.iter() {
+                    for (idx, angular) in shell.angular_momentum.iter().enumerate() {
+                        let angulars = (0..=*angular)
+                            .flat_map(|x| {
+                                (0..=*angular).flat_map(move |y| {
+                                    (0..=*angular).filter_map(move |z| {
+                                        if x + y + z == *angular {
+                                            Some([x, y, z])
+                                        } else {
+                                            None
+                                        }
+                                    })
                                 })
                             })
-                        })
-                        .collect::<Vec<[i32; 3]>>();
+                            .collect::<Vec<[i32; 3]>>();
 
-                    for angular in angulars {
-                        basis_functions.push(ContractedGaussian::new(
-                            position,
-                            shell
-                                .exponents
-                                .iter()
-                                .zip(shell.coefficients[idx].iter())
-                                .map(|(s1, s2)| [s1.parse(), s2.parse()].map(Result::unwrap))
-                                .map(|[exp, coeff]| GaussianPrimitive::new(angular, exp, coeff))
-                                .collect(),
-                        ))
+                        for angular in angulars {
+                            basis_functions.push(ContractedGaussian::new(
+                                position,
+                                shell
+                                    .exponents
+                                    .iter()
+                                    .zip(shell.coefficients[idx].iter())
+                                    .map(|(s1, s2)| [s1.parse(), s2.parse()].map(Result::unwrap))
+                                    .map(|[exp, coeff]| GaussianPrimitive::new(angular, exp, coeff))
+                                    .collect(),
+                            ))
+                        }
                     }
                 }
-            }
-            Atom::new_ion(position, atom_type, basis_functions, electron_balance)
-        })
+                Atom::new_ion(position, atom_type, basis_functions, electron_balance)
+            })
+            .expect("Failed to get atom from basis set")
     }
 }
 
@@ -122,9 +119,8 @@ impl BasisSet {
 pub fn test_basis() {
     use crate::basis_sets::BASIS_6_31G;
 
-    if let Some(atom) = BASIS_6_31G.get(Vector3::zeros(), AtomType::Phosphorous, 0) {
-        println!("{}", atom)
-    } else {
-        panic!("Couldn't get atom");
-    }
+    println!(
+        "{}",
+        BASIS_6_31G.get(Vector3::zeros(), AtomType::Phosphorous, 0)
+    )
 }
