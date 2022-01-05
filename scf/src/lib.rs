@@ -28,14 +28,14 @@ pub enum HartreeFockError {
 }
 
 pub trait SelfConsistentField {
-    fn try_scf(&self, n_elecs: usize, max_iters: usize, epsilon: f64) -> Option<HartreeFockResult>;
+    fn try_scf(&self, max_iters: usize, epsilon: f64) -> Option<HartreeFockResult>;
 }
 
 impl<T> SelfConsistentField for T
 where
     T: IntoIterator<Item = Atom> + Clone,
 {
-    fn try_scf(&self, n_elecs: usize, max_iters: usize, epsilon: f64) -> Option<HartreeFockResult> {
+    fn try_scf(&self, max_iters: usize, epsilon: f64) -> Option<HartreeFockResult> {
         let atoms = self.clone().into_iter().collect::<Vec<Atom>>();
         let basis = atoms
             .iter()
@@ -48,6 +48,7 @@ where
 
         let n_atoms = atoms.len();
         let n_basis = basis.len();
+        let n_elecs = atoms.iter().fold(0, |acc, atom| acc + atom.num_electrons());
 
         // println!("Num atoms: {}", n_atoms);
         // println!("Num electrons: {}", n_elecs);
