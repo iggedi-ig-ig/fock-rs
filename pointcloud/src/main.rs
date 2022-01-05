@@ -1,4 +1,4 @@
-use basis_set::periodic_table::AtomType;
+use basis_set::periodic_table::AtomType::{Hydrogen, Oxygen};
 use kiss3d::camera::ArcBall;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::light::Light;
@@ -14,23 +14,15 @@ const POINT_CLOUD_ITER_SIZE: usize = 75_000;
 const RENDER_SCALE: f32 = 1.0;
 
 fn main() {
-    let basis = &basis_set::basis_sets::BASIS_6_31G;
+    let basis = &basis_set::basis_sets::BASIS_STO_3G;
+    let a = 104.5f64.to_radians() * 0.5;
+    let l = 0.96 * 1.89;
     let molecule = [
-        basis.get(Vector3::new(-0.7, 0.0, 0.0), AtomType::Hydrogen, 0),
-        basis.get(Vector3::new(0.7, 0.0, 0.0), AtomType::Hydrogen, -1),
+        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * l, Hydrogen, 0),
+        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * l, Hydrogen, 0),
+        basis.get(Vector3::zeros(), Oxygen, 0),
     ];
     if let Some(result) = molecule.try_scf(1000, 1e-12) {
-        println!("SCF-Cycle converged after {} iterations", result.iterations);
-        print!(
-            "Orbital energies: {:0.4}",
-            result.orbital_energies.transpose()
-        );
-        print!("Density matrix: {:0.4}", result.density_matrix);
-        print!(
-            "Orbital matrix: {:0.4}",
-            result.wave_function.coeff_matrix()
-        );
-
         let mut window = Window::new("test");
         let mut rng = XorShiftRng::from_entropy();
         window.set_light(Light::StickToCamera);
@@ -46,8 +38,7 @@ fn main() {
 
         molecule.iter().for_each(|atom| {
             let mut sphere = window.add_sphere(0.25);
-            // TODO
-            let [r, g, b] = [1.0, 1.0, 1.0];
+            let [r, g, b] = atom.atom_type().color();
             sphere.set_color(r, g, b);
             sphere.set_local_translation(Translation3::from(
                 Vector3::new(atom.position().x, atom.position().y, atom.position().z)
@@ -86,11 +77,11 @@ fn main() {
 
             window.draw_text(
                 &*format!(
-                    "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} Hartrees)\nmin prob: {:0.5}",
+                    "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} eV)\nmin prob: {:0.5}",
                     points.len(),
                     n,
                     result.wave_function.basis_functions().len() - 1,
-                    result.orbital_energies[n],
+                    result.orbital_energies[n] * 27.211,
                     min_prob,
                 ),
                 &Point2::new(10.0, 10.0),

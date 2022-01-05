@@ -265,6 +265,18 @@ impl AtomType {
     pub fn from_ordinal(ordinal: usize) -> Self {
         unsafe { transmute(ordinal) }
     }
+
+    pub fn color(&self) -> [f32; 3] {
+        match *self {
+            AtomType::Hydrogen => [0.9; 3],
+            AtomType::Carbon => [0.1; 3],
+            AtomType::Oxygen => [0.9, 0.1, 0.1],
+            AtomType::Chlorine => [0.1, 0.9, 0.1],
+            AtomType::Nitrogen => [0.1, 0.1, 0.9],
+            AtomType::Fluorine => [188.0 / 255.0, 166.0 / 255.0, 65.0 / 255.0],
+            _ => [0.5; 3],
+        }
+    }
 }
 
 #[test]
