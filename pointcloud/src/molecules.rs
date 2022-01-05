@@ -33,7 +33,7 @@ pub fn build_nitrite(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
 /// length_cc: 2.5a_0
 /// length_ch: 2.0a_0
 pub fn build_ethene(basis: &BasisSet, angle: f64, length_cc: f64, length_ch: f64) -> [Atom; 6] {
-    let a = angle.to_radians() * 0.5;
+    let a = (std::f64::consts::PI - angle.to_radians()) * 0.5;
 
     let carbon_a = basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon, 0);
     let carbon_b = basis.get(
@@ -90,4 +90,12 @@ pub fn build_ethyne(basis: &BasisSet, length_cc: f64, length_ch: f64) -> [Atom; 
             0,
         ),
     ]
+}
+
+pub fn build_benzene(basis: &BasisSet, length_cc: f64, length_ch: f64) -> Vec<Atom> {
+    let angle_incr = std::f64::consts::FRAC_PI_3;
+    (0..6).map(|k| k as f64 * angle_incr).flat_map(|a| [
+        basis.get(Vector3::new(a.sin(), 0.0, a.cos()) * length_cc, AtomType::Carbon, 0),
+        basis.get(Vector3::new(a.sin(), 0.0, a.cos()) * (length_cc + length_ch), AtomType::Hydrogen, 0)
+    ]).collect()
 }
