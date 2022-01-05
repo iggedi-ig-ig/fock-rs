@@ -8,6 +8,7 @@ use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
 use nalgebra::{DMatrix, DVector};
+use std::time::Instant;
 
 #[derive(Debug)]
 pub struct HartreeFockResult {
@@ -73,9 +74,15 @@ where
         let nuclear = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
         });
+
+        let start = Instant::now();
         let multi = ElectronRepulsionTensor::from_fn(n_basis, |i, j, k, l| {
             ContractedGaussian::electron_repulsion_int(&basis[i], &basis[j], &basis[k], &basis[l])
         });
+        println!(
+            "\rMulti-Electron tensor formation took {:?}",
+            start.elapsed()
+        );
 
         let core_hamiltonian = kinetic + nuclear;
         let transformation = {

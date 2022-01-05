@@ -21,6 +21,14 @@ impl ElectronRepulsionTensor {
             size,
             data: (0..total)
                 .map(|index| {
+                    if index % 2500 == 0 {
+                        print!(
+                            "\r{}/{} ({:0.2}% done)",
+                            index,
+                            total,
+                            index as f64 / total as f64 * 100.0
+                        );
+                    }
                     let x = index % size;
                     let y = ((index - x) / size) % size;
                     let z = ((index - y * size - x) / size.pow(2)) % size;

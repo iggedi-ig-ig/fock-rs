@@ -14,7 +14,7 @@ const POINT_CLOUD_ITER_SIZE: usize = 75_000;
 const RENDER_SCALE: f32 = 1.0;
 
 fn main() {
-    let basis = &basis_set::basis_sets::BASIS_STO_3G;
+    let basis = &basis_set::basis_sets::BASIS_6_31G;
     let a = 104.5f64.to_radians() * 0.5;
     let l = 0.96 * 1.89;
     let molecule = [
@@ -22,6 +22,9 @@ fn main() {
         basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * l, Hydrogen, 0),
         basis.get(Vector3::zeros(), Oxygen, 0),
     ];
+    let n_elecs = molecule
+        .iter()
+        .fold(0, |acc, atom| acc + atom.num_electrons());
     if let Some(result) = molecule.try_scf(1000, 1e-12) {
         let mut window = Window::new("test");
         let mut rng = XorShiftRng::from_entropy();
@@ -49,7 +52,7 @@ fn main() {
 
         let mut n = 0;
         let mut points = Vec::new();
-        let mut min_prob = 0.01;
+        let mut min_prob = 0.02;
 
         while window.render_with_camera(&mut cam) {
             if points.len() < POINT_CLOUD_SIZE {
@@ -75,13 +78,23 @@ fn main() {
                 .iter()
                 .for_each(|(point, color)| window.draw_point(point, color));
 
+            let homo_n = (n_elecs + 1) / 2;
             window.draw_text(
                 &*format!(
-                    "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} eV)\nmin prob: {:0.5}",
+                    "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} eV) {}\nmin prob: {:0.5}",
                     points.len(),
                     n,
                     result.wave_function.basis_functions().len() - 1,
                     result.orbital_energies[n] * 27.211,
+                    if n < homo_n {
+                        "(occupied)"
+                    } else if n == homo_n {
+                        "(HOMO)"
+                    } else if n == homo_n + 1 {
+                        "(LUMO)"
+                    } else {
+                        "(virtual)"
+                    },
                     min_prob,
                 ),
                 &Point2::new(10.0, 10.0),

@@ -389,9 +389,12 @@ pub fn boys_quadrature(t: f64, n: i32) -> f64 {
 }
 
 pub fn boys(t: f64, n: i32) -> f64 {
-    if n > MAX_TABULATED_N {
-        return boys_quadrature(t, n);
-    }
+    assert!(
+        n <= MAX_TABULATED_N,
+        "Boys-Function order {} is higher than max tabulated order {}",
+        n,
+        MAX_TABULATED_N
+    );
 
     if t.abs() < 1e-16 {
         f64::recip((2 * n + 1) as f64)
