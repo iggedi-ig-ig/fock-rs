@@ -80,7 +80,7 @@ where
             ContractedGaussian::electron_repulsion_int(&basis[i], &basis[j], &basis[k], &basis[l])
         });
         println!(
-            "\rMulti-Electron tensor formation took {:?}",
+            "\rMulti-Electron tensor formation took {:0.3?}",
             start.elapsed()
         );
 
