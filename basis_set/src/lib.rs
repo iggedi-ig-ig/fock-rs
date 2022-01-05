@@ -78,7 +78,7 @@ impl BasisSet {
         &self,
         position: Vector3<f64>,
         atom_type: AtomType,
-        ion_charge: i32,
+        electron_balance: i32,
     ) -> Option<Atom> {
         let config = self.elements.get(&atom_type);
         config.map(|config| {
@@ -113,7 +113,7 @@ impl BasisSet {
                     }
                 }
             }
-            Atom::new_ion(position, atom_type, basis_functions, ion_charge)
+            Atom::new_ion(position, atom_type, basis_functions, electron_balance)
         })
     }
 }

@@ -8,7 +8,13 @@ use std::fmt::{Display, Formatter};
 pub struct Atom {
     position: Vector3<f64>,
     atom_type: AtomType,
-    ion_charge: i32,
+    /// this is the amount of exta electrons this atom has
+    ///
+    /// example:
+    ///     - O^2- has an electron balance of -2
+    ///     - H+   has an electron balance of +1
+    /// etc.
+    electron_balance: i32,
     basis: Vec<ContractedGaussian>,
 }
 
@@ -21,7 +27,7 @@ impl Atom {
         Self {
             position,
             atom_type,
-            ion_charge: 0,
+            electron_balance: 0,
             basis,
         }
     }
@@ -30,12 +36,12 @@ impl Atom {
         position: Vector3<f64>,
         atom_type: AtomType,
         basis: Vec<ContractedGaussian>,
-        ion_charge: i32,
+        electron_balance: i32,
     ) -> Self {
         Self {
             position,
             atom_type,
-            ion_charge,
+            electron_balance,
             basis,
         }
     }
@@ -43,25 +49,22 @@ impl Atom {
     pub fn position(&self) -> Vector3<f64> {
         self.position
     }
-    pub fn charge(&self) -> f64 {
-        (self.atom_type as usize) as f64
-    }
     pub fn basis(&self) -> &Vec<ContractedGaussian> {
         &self.basis
     }
     pub fn num_electrons(&self) -> usize {
-        ((self.atom_type as usize) as i32 - self.ion_charge) as usize
+        ((self.atom_type as usize) as i32 + self.electron_balance) as usize
     }
     pub fn atom_type(&self) -> AtomType {
         self.atom_type
     }
-    pub fn ion_charge(&self) -> i32 {
-        self.ion_charge
+    pub fn electron_balance(&self) -> i32 {
+        self.electron_balance
     }
     pub fn point_charge(&self) -> PointCharge {
         PointCharge {
             position: self.position(),
-            charge: self.charge(),
+            charge: (self.atom_type as usize) as f64,
         }
     }
 }

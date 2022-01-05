@@ -374,8 +374,24 @@ const LUT: &[f64; N] = &[
     8.422723168873966e-08,
 ];
 
+pub fn boys_quadrature(t: f64, n: i32) -> f64 {
+    let integrand = |x: f64| -> f64 { x.powi(2 * n) * f64::exp(-t * x.powi(2)) };
+
+    const ITERS: i32 = 15;
+    const ITERS_F: f64 = ITERS as f64;
+
+    ITERS_F.recip()
+        * (integrand(0.0) * 0.5
+            + (1..ITERS)
+                .map(|k| integrand(k as f64 * ITERS_F.recip()))
+                .sum::<f64>()
+            + integrand(1.0) * 0.5)
+}
+
 pub fn boys(t: f64, n: i32) -> f64 {
-    assert!(n <= MAX_TABULATED_N);
+    if n > MAX_TABULATED_N {
+        return boys_quadrature(t, n);
+    }
 
     if t.abs() < 1e-16 {
         f64::recip((2 * n + 1) as f64)

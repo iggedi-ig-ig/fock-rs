@@ -9,7 +9,7 @@ pub struct MolecularWaveFunction {
 }
 
 impl MolecularWaveFunction {
-    const MIN_COEFFICIENT_MAGNITUDE: f64 = 1e-6;
+    const MIN_COEFFICIENT_MAGNITUDE: f64 = 0.05;
 
     pub fn new(basis_functions: Vec<ContractedGaussian>, coeff_matrix: DMatrix<f64>) -> Self {
         Self {
@@ -19,19 +19,19 @@ impl MolecularWaveFunction {
     }
 
     pub fn evaluate(&self, at: Vector3<f64>, energy_level: usize) -> f64 {
-        (0..self.basis_functions.len()).fold(0.0, |acc, i| {
-            let coeff = self.coeff_matrix[(i, energy_level)];
-            const EPS: f64 = 5e-2;
-
-            acc + if coeff.abs() < EPS {
-                0.0
-            } else {
-                coeff * self.basis_functions[i].evaluate(&at)
-            }
-        })
+        let coeffs = self.coeff_matrix.column(energy_level);
+        coeffs
+            .into_iter()
+            .zip(self.basis_functions.iter())
+            .filter(|(coeff, _)| coeff.abs() > Self::MIN_COEFFICIENT_MAGNITUDE)
+            .map(|(coeff, basis)| coeff * basis.evaluate(&at))
+            .sum::<f64>()
     }
 
     pub fn basis_functions(&self) -> &Vec<ContractedGaussian> {
         &self.basis_functions
+    }
+    pub fn coeff_matrix(&self) -> &DMatrix<f64> {
+        &self.coeff_matrix
     }
 }

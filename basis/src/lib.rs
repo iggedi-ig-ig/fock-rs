@@ -4,6 +4,7 @@ pub mod utils;
 
 use nalgebra::Vector3;
 
+#[derive(Copy, Clone, Debug)]
 pub struct PointCharge {
     pub position: Vector3<f64>,
     pub charge: f64,
@@ -20,11 +21,7 @@ pub trait BasisFunction {
 
     /// Nuclear attraction integral
     /// <a|1/eA|b>
-    fn nuclear_attraction_int<I: Iterator<Item = PointCharge>>(
-        a: &Self,
-        b: &Self,
-        nuclei: I,
-    ) -> f64;
+    fn nuclear_attraction_int(a: &Self, b: &Self, nuclei: &[PointCharge]) -> f64;
 
     /// Electron-Electron repulsion
     /// <ab|cd>
