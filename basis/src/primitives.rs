@@ -1,3 +1,4 @@
+use nalgebra::Vector3;
 use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, Debug)]
@@ -38,6 +39,15 @@ impl GaussianPrimitive {
 
     pub fn new_spherical(exponent: f64, coefficient: f64) -> Self {
         Self::new([0; 3], exponent, coefficient)
+    }
+
+    pub fn product_center(
+        a: &Self,
+        a_pos: &Vector3<f64>,
+        b: &Self,
+        b_pos: &Vector3<f64>,
+    ) -> Vector3<f64> {
+        (a.exponent * a_pos + b.exponent * b_pos) / (a.exponent + b.exponent)
     }
 
     pub fn angular(&self) -> [i32; 3] {
