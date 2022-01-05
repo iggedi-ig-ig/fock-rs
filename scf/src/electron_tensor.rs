@@ -36,6 +36,8 @@ impl ElectronRepulsionTensor {
                     let z = ((index - y * size - x) / size.pow(2)) % size;
                     let w = (index - z * size.pow(2) - y * size - x) / size.pow(3);
 
+                    if x > y || z > w || x * (x + 1) / 2 + y > z * (z + 1) / 2 + w { return 0.0; }
+
                     func(x, y, z, w)
                 })
                 .collect::<Vec<_>>(),
@@ -47,6 +49,10 @@ impl Index<(usize, usize, usize, usize)> for ElectronRepulsionTensor {
     type Output = f64;
 
     fn index(&self, (x, y, z, w): (usize, usize, usize, usize)) -> &Self::Output {
+        let (x, y) = if x > y { (y, x) } else { (x, y) };
+        let (z, w) = if z > w { (w, z) } else { (z, w) };
+        let (x, y, z, w) = if x * (x + 1) / 2 + y > z * (z + 1) / 2 + w { (z, w, x, y) } else { (x, y, z, w) };
+
         let index = x + y * self.size + z * self.size.pow(2) + w * self.size.pow(3);
         &self.data[index]
     }
