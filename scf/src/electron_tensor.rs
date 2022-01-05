@@ -1,3 +1,4 @@
+use std::io::{stdout, Write};
 use std::ops::Index;
 
 #[derive(Debug)]
@@ -28,6 +29,7 @@ impl ElectronRepulsionTensor {
                             total,
                             index as f64 / total as f64 * 100.0
                         );
+                        stdout().flush().expect("Failed to flush console");
                     }
                     let x = index % size;
                     let y = ((index - x) / size) % size;

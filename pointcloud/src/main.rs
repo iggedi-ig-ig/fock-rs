@@ -1,4 +1,5 @@
-use basis_set::periodic_table::AtomType::{Hydrogen, Oxygen};
+mod molecules;
+
 use kiss3d::camera::ArcBall;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::light::Light;
@@ -14,14 +15,8 @@ const POINT_CLOUD_ITER_SIZE: usize = 75_000;
 const RENDER_SCALE: f32 = 1.0;
 
 fn main() {
-    let basis = &basis_set::basis_sets::BASIS_6_31G;
-    let a = 104.5f64.to_radians() * 0.5;
-    let l = 0.96 * 1.89;
-    let molecule = [
-        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * l, Hydrogen, 0),
-        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * l, Hydrogen, 0),
-        basis.get(Vector3::zeros(), Oxygen, 0),
-    ];
+    let basis = &basis_set::basis_sets::BASIS_STO_3G;
+    let molecule = molecules::build_ethyne(basis, 2.25, 2.0);
     let n_elecs = molecule
         .iter()
         .fold(0, |acc, atom| acc + atom.num_electrons());
