@@ -1,4 +1,3 @@
-use basis_set::basis_sets::{BASIS_6_31G, BASIS_STO_3G};
 use basis_set::periodic_table::AtomType;
 use kiss3d::camera::ArcBall;
 use kiss3d::event::{Action, Key, WindowEvent};
@@ -17,14 +16,10 @@ const RENDER_SCALE: f32 = 1.0;
 fn main() {
     let basis = &basis_set::basis_sets::BASIS_6_31G;
     let molecule = [
-        basis
-            .get(Vector3::new(-0.7, 0.0, 0.0), AtomType::Helium, 0)
-            .unwrap(),
-        basis
-            .get(Vector3::new(0.7, 0.0, 0.0), AtomType::Hydrogen, 0)
-            .unwrap(),
+        basis.get(Vector3::new(-0.7, 0.0, 0.0), AtomType::Hydrogen, 0),
+        basis.get(Vector3::new(0.7, 0.0, 0.0), AtomType::Hydrogen, -1),
     ];
-    if let Some(result) = molecule.try_scf(2, 1000, 1e-12) {
+    if let Some(result) = molecule.try_scf(1000, 1e-12) {
         println!("SCF-Cycle converged after {} iterations", result.iterations);
         print!(
             "Orbital energies: {:0.4}",

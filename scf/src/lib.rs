@@ -4,12 +4,10 @@ pub mod utils;
 
 use crate::electron_tensor::ElectronRepulsionTensor;
 use crate::molecular_wave_function::MolecularWaveFunction;
-use crate::utils::hermitian;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
-use basis_set::periodic_table::AtomType;
-use nalgebra::{DMatrix, DVector, Vector3};
+use nalgebra::{DMatrix, DVector};
 
 #[derive(Debug)]
 pub struct HartreeFockResult {
@@ -49,10 +47,6 @@ where
         let n_atoms = atoms.len();
         let n_basis = basis.len();
         let n_elecs = atoms.iter().fold(0, |acc, atom| acc + atom.num_electrons());
-
-        // println!("Num atoms: {}", n_atoms);
-        // println!("Num electrons: {}", n_elecs);
-        // println!("Num basis functions: {}", n_basis);
 
         let nuclear_repulsion_energy = {
             let point_charges = &point_charges;
@@ -114,7 +108,7 @@ where
             let fock_prime = transform(&fock);
 
             let (coeffs_prime, orbital_energies) = utils::sorted_eigs(fock_prime);
-            let coeffs = &transformation * coeffs_prime;
+            let coeffs = transform_inv(&coeffs_prime);
 
             let new_density = DMatrix::from_fn(n_basis, n_basis, |i, j| {
                 2.0 * (0..n_elecs / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
@@ -146,70 +140,18 @@ where
     }
 }
 
-#[test]
-pub fn test_plot_dist() {
-    fn test(dist: f64) {
-        let basis = &basis_set::basis_sets::BASIS_6_31G;
-        let molecule = [
-            basis
-                .get(Vector3::new(0.0, 0.0, -dist * 0.5), AtomType::Helium, 0)
-                .unwrap(),
-            basis
-                .get(Vector3::new(0.0, 0.0, dist * 0.5), AtomType::Hydrogen, -1)
-                .unwrap(),
-        ];
-
-        let result = molecule.try_scf(2, 1000, 1e-6).unwrap();
-        print!("{:0.4}, ", result.total_energy);
-    }
-
-    print!("data = [");
-    for dist in (1..250).map(|i| i as f64 / 250.0 * 2.5) {
-        test(dist);
-    }
-    print!("]")
-}
-
-#[test]
-pub fn test_helium_hydride_cation() {
-    const DIST: f64 = 1.4;
-
-    let basis = &basis_set::basis_sets::BASIS_6_31G;
-    let molecule = [
-        basis
-            .get(Vector3::new(0.0, 0.0, -DIST * 0.5), AtomType::Helium, 0)
-            .unwrap(),
-        basis
-            .get(Vector3::new(0.0, 0.0, DIST * 0.5), AtomType::Hydrogen, -1)
-            .unwrap(),
-    ];
-
-    if let Some(result) = molecule.try_scf(2, 1000, 1e-5) {
-        println!("SCF-Cycle converged in {} iterations", result.iterations);
-        print!(
-            "Orbital (coefficient) matrix: {:0.5}",
-            result.wave_function.coeff_matrix()
-        );
-        print!("Density matrix: {:0.5}", result.density_matrix);
-        print!(
-            "Orbital energies: {:0.5}",
-            result.orbital_energies.transpose()
-        );
-        println!("Total energy: {:0.4}", result.total_energy);
-        println!("Electronic energy: {:0.4}", result.electronic_energy);
-    }
-}
-
 // STO-3G with dist = 1.6a_0: https://i.imgur.com/9lXD7N7.png
 // 6-31G  with dist = 1.6a_0: https://i.imgur.com/b2wa0Gd.png
 #[test]
 pub fn test_integrals() {
+    use crate::utils::hermitian;
+    use basis_set::periodic_table::AtomType;
+    use nalgebra::base::Vector3;
+
     let basis = &basis_set::basis_sets::BASIS_STO_3G;
     let molecule = [
-        basis.get(Vector3::zeros(), AtomType::Hydrogen, 0).unwrap(),
-        basis
-            .get(Vector3::new(0.0, 0.0, 1.6), AtomType::Hydrogen, 0)
-            .unwrap(),
+        basis.get(Vector3::zeros(), AtomType::Hydrogen, 0),
+        basis.get(Vector3::new(0.0, 0.0, 1.6), AtomType::Hydrogen, 0),
     ];
 
     let basis = molecule

@@ -156,7 +156,7 @@ impl GaussianPrimitive {
                                                 v1 + v2,
                                                 0,
                                                 alpha,
-                                                &comp_diff,
+                                                comp_diff,
                                                 comp_dist_sq,
                                             )
                                     })
