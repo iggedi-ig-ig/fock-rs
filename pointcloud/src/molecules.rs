@@ -1,98 +1,73 @@
+#![allow(dead_code)]
+
 use basis_set::atom::Atom;
 use basis_set::periodic_table::AtomType;
-use basis_set::periodic_table::AtomType::{Hydrogen, Nitrogen, Oxygen};
+use basis_set::periodic_table::AtomType::{Carbon, Hydrogen, Nitrogen, Oxygen};
 use basis_set::BasisSet;
 use nalgebra::Vector3;
 
-#[allow(dead_code)]
-/// angle: 104.5°
-/// length: 1.8a_0
-pub fn build_water(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
-    let a = angle.to_radians() * 0.5;
-    [
-        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * length, Hydrogen),
-        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * length, Hydrogen),
-        basis.get(Vector3::zeros(), Oxygen),
-    ]
+#[derive(Copy, Clone)]
+pub struct AtomBlueprint {
+    position: Vector3<f64>,
+    atom_type: AtomType,
 }
 
-#[allow(dead_code)]
-/// angle: 115°
-/// length: 2.35
-pub fn build_nitrite(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
-    let a = angle.to_radians() * 0.5;
-    [
-        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * length, Oxygen),
-        basis.get(Vector3::zeros() * length, Nitrogen),
-        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * length, Oxygen),
-    ]
+impl AtomBlueprint {
+    pub const fn new(position: Vector3<f64>, atom_type: AtomType) -> Self {
+        Self {
+            position,
+            atom_type,
+        }
+    }
+
+    pub fn build(self, basis_set: &BasisSet) -> Atom {
+        basis_set.get(self.position, self.atom_type)
+    }
 }
 
-#[allow(dead_code)]
-/// angle: 120°
-/// length_cc: 2.5a_0
-/// length_ch: 2.0a_0
-pub fn build_ethene(basis: &BasisSet, angle: f64, length_cc: f64, length_ch: f64) -> [Atom; 6] {
-    let a = (std::f64::consts::PI - angle.to_radians()) * 0.5;
-
-    let carbon_a = basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon);
-    let carbon_b = basis.get(Vector3::new(-length_cc * 0.5, 0.0, 0.0), AtomType::Carbon);
-
-    [
-        basis.get(
-            carbon_a.position() + Vector3::new(a.sin(), 0.0, a.cos()) * length_ch,
-            AtomType::Hydrogen,
-        ),
-        basis.get(
-            carbon_a.position() + Vector3::new(a.sin(), 0.0, -a.cos()) * length_ch,
-            AtomType::Hydrogen,
-        ),
-        carbon_a,
-        basis.get(
-            carbon_b.position() - Vector3::new(a.sin(), 0.0, a.cos()) * length_ch,
-            AtomType::Hydrogen,
-        ),
-        basis.get(
-            carbon_b.position() - Vector3::new(a.sin(), 0.0, -a.cos()) * length_ch,
-            AtomType::Hydrogen,
-        ),
-        carbon_b,
-    ]
+#[derive(Default)]
+pub struct MoleculeBlueprint<'a> {
+    atoms: &'a [AtomBlueprint],
 }
 
-#[allow(dead_code)]
-/// length_cc: 2.25a_0
-/// length_ch: 2.0a_0
-pub fn build_ethyne(basis: &BasisSet, length_cc: f64, length_ch: f64) -> [Atom; 4] {
-    [
-        basis.get(
-            Vector3::new(-length_ch * 0.5 - length_ch, 0.0, 0.0),
-            AtomType::Hydrogen,
-        ),
-        basis.get(Vector3::new(-length_cc * 0.5, 0.0, 0.0), AtomType::Carbon),
-        basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon),
-        basis.get(
-            Vector3::new(length_ch * 0.5 + length_ch, 0.0, 0.0),
-            AtomType::Hydrogen,
-        ),
-    ]
+impl<'a> MoleculeBlueprint<'a> {
+    pub fn build(&self, basis_set: &BasisSet) -> Vec<Atom> {
+        self.atoms
+            .iter()
+            .map(|atom| atom.build(basis_set))
+            .collect()
+    }
 }
 
-pub fn build_benzene(basis: &BasisSet, length_cc: f64, length_ch: f64) -> Vec<Atom> {
-    let angle_incr = std::f64::consts::FRAC_PI_3;
-    (0..6)
-        .map(|k| k as f64 * angle_incr)
-        .flat_map(|a| {
-            [
-                basis.get(
-                    Vector3::new(a.sin(), 0.0, a.cos()) * length_cc,
-                    AtomType::Carbon,
-                ),
-                basis.get(
-                    Vector3::new(a.sin(), 0.0, a.cos()) * (length_cc + length_ch),
-                    AtomType::Hydrogen,
-                ),
-            ]
-        })
-        .collect()
-}
+pub const WATER: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(-1.743, 0.0, -0.25), Hydrogen),
+        AtomBlueprint::new(Vector3::new(0.0, 0.0, 0.0), Oxygen),
+        AtomBlueprint::new(Vector3::new(1.743, 0.0, -0.25), Hydrogen),
+    ],
+};
+pub const NITRITE: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(-2.13, -0.9932, 0.0), Oxygen),
+        AtomBlueprint::new(Vector3::new(0.0, 0.0, 0.0), Nitrogen),
+        AtomBlueprint::new(Vector3::new(2.13, -0.9932, 0.0), Oxygen),
+    ],
+};
+pub const ETHENE: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(-1.25 - 0.866 * 2.0, 0.0, -1.0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(-1.25 - 0.866 * 2.0, 0.0, 1.0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(-1.25, 0.0, 0.0), Carbon),
+        AtomBlueprint::new(Vector3::new(1.25, 0.0, 0.0), Carbon),
+        AtomBlueprint::new(Vector3::new(1.25 + 0.866 * 2.0, 0.0, -1.0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(1.25 + 0.866 * 2.0, 0.0, 1.0), Hydrogen),
+    ],
+};
+pub const ETHYLENE: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(-3.125, 0.0, 0.0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(-1.125, 0.0, 0.0), Carbon),
+        AtomBlueprint::new(Vector3::new(1.125, 0.0, 0.0), Carbon),
+        AtomBlueprint::new(Vector3::new(3.125, 0.0, 0.0), Hydrogen),
+    ],
+};

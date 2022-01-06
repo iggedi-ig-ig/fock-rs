@@ -10,15 +10,18 @@ use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
 
-const POINT_CLOUD_SIZE: usize = 50_000;
+const POINT_CLOUD_SIZE: usize = 25_000;
 const POINT_CLOUD_ITER_SIZE: usize = 75_000;
 const RENDER_SCALE: f32 = 1.0;
 
 fn main() {
-    let basis = &basis_set::basis_sets::BASIS_6_31G;
-    let molecule = molecules::build_benzene(basis, 2.5, 2.0);
+    let molecule = molecules::ETHYLENE.build(&basis_set::basis_sets::BASIS_6_31G);
     if let Some(result) = molecule.try_scf(1000, 1e-6, 0) {
         println!("Hartree-Fock energy: {:0.5}", result.total_energy);
+        println!(
+            "Orbital energies: {:0.5}",
+            result.orbital_energies.transpose()
+        );
 
         let mut window = Window::new(&*format!(
             "Hartree-Fock orbitals of {} electron system",
@@ -50,6 +53,7 @@ fn main() {
         let mut n = 0;
         let mut points = Vec::new();
         let mut min_prob = 0.02;
+        let mut point_map = (0..n_basis).map(|_| Vec::new()).collect::<Vec<_>>();
 
         while window.render_with_camera(&mut cam) {
             if points.len() < POINT_CLOUD_SIZE {
@@ -81,7 +85,7 @@ fn main() {
                     "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} eV) {}\nmin prob: {:0.5}",
                     points.len(),
                     n,
-                    result.orbitals.basis_functions().len() - 1,
+                    n_basis - 1,
                     result.orbital_energies[n] * 27.211,
                     if n < homo_n {
                         "(occupied)"
@@ -104,20 +108,24 @@ fn main() {
                 if let WindowEvent::Key(key, Action::Press, _) = x.value {
                     match key {
                         Key::Left => {
+                            point_map[n] = points.clone();
                             n = if n > 0 { n - 1 } else { n_basis - 1 };
-                            points.clear();
+                            points = point_map[n].clone();
                         }
                         Key::Right => {
+                            point_map[n] = points.clone();
                             n = if n < n_basis - 1 { n + 1 } else { 0 };
-                            points.clear();
+                            points = point_map[n].clone();
                         }
                         Key::Up => {
                             min_prob *= 1.25;
                             points.clear();
+                            point_map.iter_mut().for_each(|v| v.clear());
                         }
                         Key::Down => {
                             min_prob *= 0.8;
                             points.clear();
+                            point_map.iter_mut().for_each(|v| v.clear());
                         }
                         Key::R => {}
                         _ => {}
