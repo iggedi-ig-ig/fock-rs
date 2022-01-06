@@ -15,15 +15,18 @@ const POINT_CLOUD_ITER_SIZE: usize = 75_000;
 const RENDER_SCALE: f32 = 1.0;
 
 fn main() {
-    let basis = &basis_set::basis_sets::BASIS_3_21G;
-    let molecule = molecules::build_benzene(basis, 2.626719, 2.05);
+    let basis = &basis_set::basis_sets::BASIS_6_31G;
+    let molecule = molecules::build_benzene(basis, 2.5, 2.0);
     let n_elecs = molecule
         .iter()
         .fold(0, |acc, atom| acc + atom.num_electrons());
     if let Some(result) = molecule.try_scf(1000, 1e-6) {
         println!("Hartree-Fock energy: {:0.5}", result.total_energy);
 
-        let mut window = Window::new(&*format!("Hartree-Fock orbitals of {} electron system", n_elecs));
+        let mut window = Window::new(&*format!(
+            "Hartree-Fock orbitals of {} electron system",
+            n_elecs
+        ));
         let mut rng = XorShiftRng::from_entropy();
         window.set_light(Light::StickToCamera);
 
@@ -125,5 +128,7 @@ fn main() {
                 }
             }
         }
+    } else {
+        println!("SCF didn't converge / diverged")
     }
 }

@@ -2,7 +2,7 @@ pub mod electron_tensor;
 pub mod molecular_wave_function;
 pub mod utils;
 
-use crate::electron_tensor::ElectronRepulsionTensor;
+use crate::electron_tensor::ElectronTensor;
 use crate::molecular_wave_function::MolecularWaveFunction;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
@@ -76,11 +76,9 @@ where
         });
 
         let start = Instant::now();
-        let multi = ElectronRepulsionTensor::from_fn(n_basis, |i, j, k, l| {
-            ContractedGaussian::electron_repulsion_int(&basis[i], &basis[j], &basis[k], &basis[l])
-        });
+        let multi = ElectronTensor::from_basis(&basis);
         println!(
-            "\rMulti-Electron tensor formation took {:0.3?}",
+            "\rMulti-Electron tensor formation took {:0.4?}",
             start.elapsed()
         );
 
@@ -138,6 +136,8 @@ where
                     total_energy: nuclear_repulsion_energy + electronic_energy,
                     iterations: iteration,
                 });
+            } else if !density_rms.is_normal() {
+                return None;
             }
 
             density = new_density;

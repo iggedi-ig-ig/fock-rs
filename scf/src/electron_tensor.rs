@@ -1,59 +1,55 @@
+use basis::contracted_gaussian::ContractedGaussian;
+use basis::BasisFunction;
 use std::io::{stdout, Write};
 use std::ops::Index;
 
-#[derive(Debug)]
-pub struct ElectronRepulsionTensor {
-    size: usize,
+pub struct ElectronTensor {
+    n_basis: usize,
     data: Vec<f64>,
 }
 
-// TODO: use symmetry for better performance
-impl ElectronRepulsionTensor {
-    pub fn new_zeros(size: usize) -> Self {
-        Self {
-            size,
-            data: vec![0.0; size * size * size * size],
-        }
-    }
+impl ElectronTensor {
+    pub fn from_basis(basis: &[ContractedGaussian]) -> Self {
+        let n_basis = basis.len();
+        let data = (0..n_basis)
+            .flat_map(move |w| {
+                (0..n_basis).flat_map(move |z| {
+                    (0..n_basis).flat_map(move |y| {
+                        (0..n_basis).map(move |x| {
+                            if x == 0 && y % 5 == 0 {
+                                print!("\rstatus: {},{},{},{} / {}", x, y, z, w, n_basis);
+                                stdout().flush().expect("failed to flush console");
+                            }
 
-    pub fn from_fn(size: usize, mut func: impl FnMut(usize, usize, usize, usize) -> f64) -> Self {
-        let total = size * size * size * size;
-        Self {
-            size,
-            data: (0..total)
-                .map(|index| {
-                    if index % 2500 == 0 {
-                        print!(
-                            "\r{}/{} ({:0.2}% done)",
-                            index,
-                            total,
-                            index as f64 / total as f64 * 100.0
-                        );
-                        stdout().flush().expect("Failed to flush console");
-                    }
-                    let x = index % size;
-                    let y = ((index - x) / size) % size;
-                    let z = ((index - y * size - x) / size.pow(2)) % size;
-                    let w = (index - z * size.pow(2) - y * size - x) / size.pow(3);
-
-                    if x > y || z > w || x * (x + 1) / 2 + y > z * (z + 1) / 2 + w { return 0.0; }
-
-                    func(x, y, z, w)
+                            if x >= y && z >= w && x * (x + 1) / 2 + y >= z * (z + 1) / 2 + w {
+                                // TODO: implement screening routines
+                                ContractedGaussian::electron_repulsion_int(
+                                    &basis[x], &basis[y], &basis[z], &basis[w],
+                                )
+                            } else {
+                                f64::NAN
+                            }
+                        })
+                    })
                 })
-                .collect::<Vec<_>>(),
-        }
+            })
+            .collect::<Vec<_>>();
+
+        Self { n_basis, data }
     }
 }
 
-impl Index<(usize, usize, usize, usize)> for ElectronRepulsionTensor {
+impl Index<(usize, usize, usize, usize)> for ElectronTensor {
     type Output = f64;
 
     fn index(&self, (x, y, z, w): (usize, usize, usize, usize)) -> &Self::Output {
-        let (x, y) = if x > y { (y, x) } else { (x, y) };
-        let (z, w) = if z > w { (w, z) } else { (z, w) };
-        let (x, y, z, w) = if x * (x + 1) / 2 + y > z * (z + 1) / 2 + w { (z, w, x, y) } else { (x, y, z, w) };
-
-        let index = x + y * self.size + z * self.size.pow(2) + w * self.size.pow(3);
-        &self.data[index]
+        let (x, y) = if x > y { (x, y) } else { (y, x) };
+        let (z, w) = if z > w { (z, w) } else { (w, z) };
+        let (x, y, z, w) = if x * (x + 1) / 2 + y >= z * (z + 1) / 2 + w {
+            (x, y, z, w)
+        } else {
+            (z, w, x, y)
+        };
+        &self.data[x + y * self.n_basis + z * self.n_basis.pow(2) + w * self.n_basis.pow(3)]
     }
 }

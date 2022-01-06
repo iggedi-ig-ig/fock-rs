@@ -94,8 +94,21 @@ pub fn build_ethyne(basis: &BasisSet, length_cc: f64, length_ch: f64) -> [Atom; 
 
 pub fn build_benzene(basis: &BasisSet, length_cc: f64, length_ch: f64) -> Vec<Atom> {
     let angle_incr = std::f64::consts::FRAC_PI_3;
-    (0..6).map(|k| k as f64 * angle_incr).flat_map(|a| [
-        basis.get(Vector3::new(a.sin(), 0.0, a.cos()) * length_cc, AtomType::Carbon, 0),
-        basis.get(Vector3::new(a.sin(), 0.0, a.cos()) * (length_cc + length_ch), AtomType::Hydrogen, 0)
-    ]).collect()
+    (0..6)
+        .map(|k| k as f64 * angle_incr)
+        .flat_map(|a| {
+            [
+                basis.get(
+                    Vector3::new(a.sin(), 0.0, a.cos()) * length_cc,
+                    AtomType::Carbon,
+                    0,
+                ),
+                basis.get(
+                    Vector3::new(a.sin(), 0.0, a.cos()) * (length_cc + length_ch),
+                    AtomType::Hydrogen,
+                    0,
+                ),
+            ]
+        })
+        .collect()
 }
