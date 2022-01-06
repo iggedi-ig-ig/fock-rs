@@ -18,6 +18,7 @@ pub struct HartreeFockResult {
     pub electronic_energy: f64,
     pub total_energy: f64,
     pub iterations: usize,
+    pub n_electrons: usize,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -27,14 +28,24 @@ pub enum HartreeFockError {
 }
 
 pub trait SelfConsistentField {
-    fn try_scf(&self, max_iters: usize, epsilon: f64) -> Option<HartreeFockResult>;
+    fn try_scf(
+        &self,
+        max_iters: usize,
+        epsilon: f64,
+        molecule_charge: i32,
+    ) -> Option<HartreeFockResult>;
 }
 
 impl<T> SelfConsistentField for T
 where
     T: IntoIterator<Item = Atom> + Clone,
 {
-    fn try_scf(&self, max_iters: usize, epsilon: f64) -> Option<HartreeFockResult> {
+    fn try_scf(
+        &self,
+        max_iters: usize,
+        epsilon: f64,
+        molecule_charge: i32,
+    ) -> Option<HartreeFockResult> {
         let atoms = self.clone().into_iter().collect::<Vec<Atom>>();
         let basis = atoms
             .iter()
@@ -47,7 +58,10 @@ where
 
         let n_atoms = atoms.len();
         let n_basis = basis.len();
-        let n_elecs = atoms.iter().fold(0, |acc, atom| acc + atom.num_electrons());
+        let n_elecs = (atoms
+            .iter()
+            .fold(0, |acc, atom| acc + atom.valence_electrons()) as i32
+            - molecule_charge) as usize;
 
         let nuclear_repulsion_energy = {
             let point_charges = &point_charges;
@@ -135,6 +149,7 @@ where
                     electronic_energy,
                     total_energy: nuclear_repulsion_energy + electronic_energy,
                     iterations: iteration,
+                    n_electrons: n_elecs,
                 });
             } else if !density_rms.is_normal() {
                 return None;
@@ -156,8 +171,8 @@ pub fn test_integrals() {
 
     let basis = &basis_set::basis_sets::BASIS_STO_3G;
     let molecule = [
-        basis.get(Vector3::zeros(), AtomType::Hydrogen, 0),
-        basis.get(Vector3::new(0.0, 0.0, 1.6), AtomType::Hydrogen, 0),
+        basis.get(Vector3::zeros(), AtomType::Hydrogen),
+        basis.get(Vector3::new(0.0, 0.0, 1.6), AtomType::Hydrogen),
     ];
 
     let basis = molecule

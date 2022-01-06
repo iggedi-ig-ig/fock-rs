@@ -10,9 +10,9 @@ use nalgebra::Vector3;
 pub fn build_water(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
     let a = angle.to_radians() * 0.5;
     [
-        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * length, Hydrogen, 0),
-        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * length, Hydrogen, 0),
-        basis.get(Vector3::zeros(), Oxygen, 0),
+        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * length, Hydrogen),
+        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * length, Hydrogen),
+        basis.get(Vector3::zeros(), Oxygen),
     ]
 }
 
@@ -22,9 +22,9 @@ pub fn build_water(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
 pub fn build_nitrite(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
     let a = angle.to_radians() * 0.5;
     [
-        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * length, Oxygen, 0),
-        basis.get(Vector3::zeros() * length, Nitrogen, 1),
-        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * length, Oxygen, 0),
+        basis.get(Vector3::new(-a.sin(), -a.cos(), 0.0) * length, Oxygen),
+        basis.get(Vector3::zeros() * length, Nitrogen),
+        basis.get(Vector3::new(a.sin(), -a.cos(), 0.0) * length, Oxygen),
     ]
 }
 
@@ -35,34 +35,26 @@ pub fn build_nitrite(basis: &BasisSet, angle: f64, length: f64) -> [Atom; 3] {
 pub fn build_ethene(basis: &BasisSet, angle: f64, length_cc: f64, length_ch: f64) -> [Atom; 6] {
     let a = (std::f64::consts::PI - angle.to_radians()) * 0.5;
 
-    let carbon_a = basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon, 0);
-    let carbon_b = basis.get(
-        Vector3::new(-length_cc * 0.5, 0.0, 0.0),
-        AtomType::Carbon,
-        0,
-    );
+    let carbon_a = basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon);
+    let carbon_b = basis.get(Vector3::new(-length_cc * 0.5, 0.0, 0.0), AtomType::Carbon);
 
     [
         basis.get(
             carbon_a.position() + Vector3::new(a.sin(), 0.0, a.cos()) * length_ch,
             AtomType::Hydrogen,
-            0,
         ),
         basis.get(
             carbon_a.position() + Vector3::new(a.sin(), 0.0, -a.cos()) * length_ch,
             AtomType::Hydrogen,
-            0,
         ),
         carbon_a,
         basis.get(
             carbon_b.position() - Vector3::new(a.sin(), 0.0, a.cos()) * length_ch,
             AtomType::Hydrogen,
-            0,
         ),
         basis.get(
             carbon_b.position() - Vector3::new(a.sin(), 0.0, -a.cos()) * length_ch,
             AtomType::Hydrogen,
-            0,
         ),
         carbon_b,
     ]
@@ -76,18 +68,12 @@ pub fn build_ethyne(basis: &BasisSet, length_cc: f64, length_ch: f64) -> [Atom; 
         basis.get(
             Vector3::new(-length_ch * 0.5 - length_ch, 0.0, 0.0),
             AtomType::Hydrogen,
-            0,
         ),
-        basis.get(
-            Vector3::new(-length_cc * 0.5, 0.0, 0.0),
-            AtomType::Carbon,
-            0,
-        ),
-        basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon, 0),
+        basis.get(Vector3::new(-length_cc * 0.5, 0.0, 0.0), AtomType::Carbon),
+        basis.get(Vector3::new(length_cc * 0.5, 0.0, 0.0), AtomType::Carbon),
         basis.get(
             Vector3::new(length_ch * 0.5 + length_ch, 0.0, 0.0),
             AtomType::Hydrogen,
-            0,
         ),
     ]
 }
@@ -101,12 +87,10 @@ pub fn build_benzene(basis: &BasisSet, length_cc: f64, length_ch: f64) -> Vec<At
                 basis.get(
                     Vector3::new(a.sin(), 0.0, a.cos()) * length_cc,
                     AtomType::Carbon,
-                    0,
                 ),
                 basis.get(
                     Vector3::new(a.sin(), 0.0, a.cos()) * (length_cc + length_ch),
                     AtomType::Hydrogen,
-                    0,
                 ),
             ]
         })

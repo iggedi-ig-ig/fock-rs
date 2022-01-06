@@ -74,9 +74,9 @@ pub struct BasisSet {
 }
 
 impl BasisSet {
-    pub fn get(&self, position: Vector3<f64>, atom_type: AtomType, electron_balance: i32) -> Atom {
-        let config = self.elements.get(&atom_type);
-        config
+    pub fn get(&self, position: Vector3<f64>, atom_type: AtomType) -> Atom {
+        self.elements
+            .get(&atom_type)
             .map(|config| {
                 let mut basis_functions = Vec::new();
                 for shell in config.electron_shells.iter() {
@@ -109,7 +109,7 @@ impl BasisSet {
                         }
                     }
                 }
-                Atom::new_ion(position, atom_type, basis_functions, electron_balance)
+                Atom::new(position, atom_type, basis_functions)
             })
             .expect("Failed to get atom from basis set")
     }
@@ -121,6 +121,6 @@ pub fn test_basis() {
 
     println!(
         "{}",
-        BASIS_6_31G.get(Vector3::zeros(), AtomType::Phosphorous, 0)
+        BASIS_6_31G.get(Vector3::zeros(), AtomType::Phosphorous)
     )
 }

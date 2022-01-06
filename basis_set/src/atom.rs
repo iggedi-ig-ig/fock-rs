@@ -8,13 +8,6 @@ use std::fmt::{Display, Formatter};
 pub struct Atom {
     position: Vector3<f64>,
     atom_type: AtomType,
-    /// this is the amount of exta electrons this atom has
-    ///
-    /// example:
-    ///     - O^2- has an electron balance of -2
-    ///     - H+   has an electron balance of +1
-    /// etc.
-    electron_balance: i32,
     basis: Vec<ContractedGaussian>,
 }
 
@@ -27,21 +20,6 @@ impl Atom {
         Self {
             position,
             atom_type,
-            electron_balance: 0,
-            basis,
-        }
-    }
-
-    pub fn new_ion(
-        position: Vector3<f64>,
-        atom_type: AtomType,
-        basis: Vec<ContractedGaussian>,
-        electron_balance: i32,
-    ) -> Self {
-        Self {
-            position,
-            atom_type,
-            electron_balance,
             basis,
         }
     }
@@ -52,14 +30,11 @@ impl Atom {
     pub fn basis(&self) -> &Vec<ContractedGaussian> {
         &self.basis
     }
-    pub fn num_electrons(&self) -> usize {
-        ((self.atom_type as usize) as i32 + self.electron_balance) as usize
+    pub fn valence_electrons(&self) -> usize {
+        self.atom_type as usize
     }
     pub fn atom_type(&self) -> AtomType {
         self.atom_type
-    }
-    pub fn electron_balance(&self) -> i32 {
-        self.electron_balance
     }
     pub fn point_charge(&self) -> PointCharge {
         PointCharge {
@@ -75,7 +50,7 @@ impl Display for Atom {
             f,
             "{:?} (electrons: {})\n\tPos: {:0.3}, {:0.3}, {:0.3}\n\tBasis Functions:",
             self.atom_type,
-            self.num_electrons(),
+            self.valence_electrons(),
             self.position.x,
             self.position.y,
             self.position.z
