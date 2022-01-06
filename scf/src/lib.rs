@@ -1,9 +1,9 @@
 pub mod electron_tensor;
-pub mod molecular_wave_function;
+pub mod molecular_orbitals;
 pub mod utils;
 
 use crate::electron_tensor::ElectronTensor;
-use crate::molecular_wave_function::MolecularWaveFunction;
+use crate::molecular_orbitals::MolecularOrbitals;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
@@ -12,7 +12,7 @@ use std::time::Instant;
 
 #[derive(Debug)]
 pub struct HartreeFockResult {
-    pub wave_function: MolecularWaveFunction,
+    pub orbitals: MolecularOrbitals,
     pub orbital_energies: DVector<f64>,
     pub density_matrix: DMatrix<f64>,
     pub electronic_energy: f64,
@@ -143,7 +143,7 @@ where
                 let electronic_energy = 0.5 * (&new_density * (&core_hamiltonian + &fock)).trace();
 
                 return Some(HartreeFockResult {
-                    wave_function: MolecularWaveFunction::new(basis, coeffs),
+                    orbitals: MolecularOrbitals::new(basis, coeffs),
                     orbital_energies,
                     density_matrix: new_density,
                     electronic_energy,

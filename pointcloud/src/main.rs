@@ -45,7 +45,7 @@ fn main() {
                     .map(|f| f as f32 * RENDER_SCALE),
             ));
         });
-        let n_basis = result.wave_function.basis_functions().len();
+        let n_basis = result.orbitals.basis_functions().len();
 
         let mut n = 0;
         let mut points = Vec::new();
@@ -55,7 +55,7 @@ fn main() {
             if points.len() < POINT_CLOUD_SIZE {
                 (0..POINT_CLOUD_ITER_SIZE).for_each(|_| {
                     let point = (rng.gen::<Vector3<f64>>() - Vector3::repeat(0.5)) * 2.0 * 5.0;
-                    let wave = result.wave_function.evaluate(point, n);
+                    let wave = result.orbitals.evaluate(point, n);
                     let prob = wave.powi(2);
 
                     if prob > min_prob {
@@ -81,7 +81,7 @@ fn main() {
                     "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} eV) {}\nmin prob: {:0.5}",
                     points.len(),
                     n,
-                    result.wave_function.basis_functions().len() - 1,
+                    result.orbitals.basis_functions().len() - 1,
                     result.orbital_energies[n] * 27.211,
                     if n < homo_n {
                         "(occupied)"

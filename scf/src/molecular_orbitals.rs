@@ -3,12 +3,12 @@ use basis::BasisFunction;
 use nalgebra::{DMatrix, Vector3};
 
 #[derive(Debug)]
-pub struct MolecularWaveFunction {
+pub struct MolecularOrbitals {
     basis_functions: Vec<ContractedGaussian>,
     coeff_matrix: DMatrix<f64>,
 }
 
-impl MolecularWaveFunction {
+impl MolecularOrbitals {
     const MIN_COEFFICIENT_MAGNITUDE: f64 = 0.05;
 
     pub fn new(basis_functions: Vec<ContractedGaussian>, coeff_matrix: DMatrix<f64>) -> Self {
