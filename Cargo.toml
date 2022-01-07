@@ -4,7 +4,8 @@ members = [
     "boys",
     "scf",
     "basis_set",
-    "pointcloud"
+    "pointcloud",
+    "cli"
 ]
 resolver = "2"
 
