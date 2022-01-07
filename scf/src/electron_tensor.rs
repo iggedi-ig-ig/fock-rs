@@ -15,12 +15,18 @@ impl ElectronTensor {
             .flat_map(move |w| {
                 (0..n_basis).flat_map(move |z| {
                     (0..n_basis).flat_map(move |y| {
+                        if y % 5 == 0 {
+                            let progress = w * n_basis.pow(3) + z * n_basis.pow(2) + y * n_basis;
+                            let max = n_basis * (n_basis.pow(3) + n_basis.pow(2) + n_basis + 1);
+                            print!(
+                                "\rERI-Formation progess: {}/{} ({:0.3}%)",
+                                progress,
+                                max,
+                                progress as f32 / max as f32 * 100.0
+                            );
+                            stdout().flush().expect("failed to flush console");
+                        }
                         (0..n_basis).map(move |x| {
-                            if x == 0 && y % 5 == 0 {
-                                print!("\rstatus: {},{},{},{} / {}", x, y, z, w, n_basis);
-                                stdout().flush().expect("failed to flush console");
-                            }
-
                             if x >= y && z >= w && x * (x + 1) / 2 + y >= z * (z + 1) / 2 + w {
                                 // TODO: implement screening routines
                                 ContractedGaussian::electron_repulsion_int(
