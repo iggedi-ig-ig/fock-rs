@@ -1,8 +1,5 @@
-mod molecules;
-
-use kiss3d::camera::ArcBall;
+use crate::molecules::{BENZENE, NITRITE};
 use kiss3d::event::{Action, Key, WindowEvent};
-use kiss3d::light::Light;
 use kiss3d::text::Font;
 use kiss3d::window::Window;
 use nalgebra::{Point2, Point3, Translation3, Vector3};
@@ -10,130 +7,93 @@ use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
 
-const POINT_CLOUD_SIZE: usize = 25_000;
-const POINT_CLOUD_ITER_SIZE: usize = 75_000;
-const RENDER_SCALE: f32 = 1.0;
+mod molecules;
+
+#[derive(Copy, Clone)]
+struct DataPoint {
+    position: Point3<f32>,
+    color: Point3<f32>,
+    prob: f32,
+}
 
 fn main() {
-    let molecule = molecules::ETHYLENE.build(&basis_set::basis_sets::BASIS_6_31G);
-    if let Some(result) = molecule.try_scf(1000, 1e-6, 0) {
-        println!("Hartree-Fock energy: {:0.5}", result.total_energy);
-        println!(
-            "Orbital energies: {:0.5}",
-            result.orbital_energies.transpose()
-        );
+    let basis_set = &basis_set::basis_sets::BASIS_3_21G;
+    let molecule = NITRITE.build(basis_set);
+    if let Some(result) = molecule.try_scf(1000, 1e-6, -1) {
+        let n_basis = result.orbitals.basis_functions().len();
 
-        let mut window = Window::new(&*format!(
-            "Hartree-Fock orbitals of {} electron system",
-            result.n_electrons,
-        ));
         let mut rng = XorShiftRng::from_entropy();
-        window.set_light(Light::StickToCamera);
-
-        let fov = std::f32::consts::PI / 4.0;
-        let mut cam = ArcBall::new_with_frustrum(
-            fov,
-            0.1,
-            1024.0,
-            Point3::new(0.0f32, 0.0, -1.0),
-            Point3::origin(),
-        );
+        let mut window = Window::new("window");
 
         molecule.iter().for_each(|atom| {
             let mut sphere = window.add_sphere(0.25);
-            let [r, g, b] = atom.atom_type().color();
-            sphere.set_color(r, g, b);
-            sphere.set_local_translation(Translation3::from(
-                Vector3::new(atom.position().x, atom.position().y, atom.position().z)
-                    .map(|f| f as f32 * RENDER_SCALE),
-            ));
+            let color = atom.atom_type().color();
+            sphere.set_color(color[0], color[1], color[2]);
+            sphere.set_local_translation(Translation3::from(atom.position().map(|f| f as f32)))
         });
-        let n_basis = result.orbitals.basis_functions().len();
 
+        let mut data_points = Vec::new();
         let mut n = 0;
-        let mut points = Vec::new();
         let mut min_prob = 0.02;
-        let mut point_map = (0..n_basis).map(|_| Vec::new()).collect::<Vec<_>>();
-
-        while window.render_with_camera(&mut cam) {
-            if points.len() < POINT_CLOUD_SIZE {
-                (0..POINT_CLOUD_ITER_SIZE).for_each(|_| {
-                    let point = (rng.gen::<Vector3<f64>>() - Vector3::repeat(0.5)) * 2.0 * 5.0;
+        while window.render() {
+            window.set_title(&*format!(
+                "Energy Level: {}/{} (E: {:+0.3}eV)",
+                n,
+                n_basis - 1,
+                result.orbital_energies[n] * 27.211 // <-- Hartree to eV conversion factor
+            ));
+            if data_points.len() < 1_000_000 {
+                for _ in 0..50_000 {
+                    let point = (rng.gen::<Vector3<f64>>() - Vector3::repeat(0.5))
+                        .component_mul(&Vector3::new(7.5, 5.0, 7.5))
+                        * 2.0;
                     let wave = result.orbitals.evaluate(point, n);
                     let prob = wave.powi(2);
 
-                    if prob > min_prob {
-                        points.push((
-                            Point3::from(point.map(|f| f as f32 * RENDER_SCALE)),
-                            if wave > 0.0 {
-                                Point3::new(0.2, 0.2, 1.0)
-                            } else {
-                                Point3::new(1.0, 0.2, 0.2)
-                            },
-                        ))
-                    }
-                });
+                    data_points.push(DataPoint {
+                        position: Point3::from(point.map(|f| f as f32)),
+                        color: if wave > 0.0 {
+                            Point3::new(1.0, 0.2, 0.2)
+                        } else {
+                            Point3::new(0.2, 0.2, 1.0)
+                        },
+                        prob: prob as f32,
+                    });
+                }
             }
 
-            points
-                .iter()
-                .for_each(|(point, color)| window.draw_point(point, color));
-
-            let homo_n = result.n_electrons / 2;
-            window.draw_text(
-                &*format!(
-                    "point cloud size: {}\nenergy level: {}/{} (E: {:0.4} eV) {}\nmin prob: {:0.5}",
-                    points.len(),
-                    n,
-                    n_basis - 1,
-                    result.orbital_energies[n] * 27.211,
-                    if n < homo_n {
-                        "(occupied)"
-                    } else if n == homo_n {
-                        "(HOMO)"
-                    } else if n == homo_n + 1 {
-                        "(LUMO)"
-                    } else {
-                        "(virtual)"
-                    },
-                    min_prob,
-                ),
-                &Point2::new(10.0, 10.0),
-                50.0,
-                &Font::default(),
-                &Point3::new(1.0, 1.0, 1.0),
-            );
-
-            for x in window.events().iter() {
-                if let WindowEvent::Key(key, Action::Press, _) = x.value {
+            window.events().iter().for_each(|event| {
+                if let WindowEvent::Key(key, Action::Press, _) = event.value {
                     match key {
+                        Key::Up => min_prob *= 1.25,
+                        Key::Down => min_prob /= 1.25,
                         Key::Left => {
-                            point_map[n] = points.clone();
-                            n = if n > 0 { n - 1 } else { n_basis - 1 };
-                            points = point_map[n].clone();
+                            data_points.clear();
+                            n = if n > 0 { n - 1 } else { n_basis - 1 }
                         }
                         Key::Right => {
-                            point_map[n] = points.clone();
-                            n = if n < n_basis - 1 { n + 1 } else { 0 };
-                            points = point_map[n].clone();
+                            data_points.clear();
+                            n = if n < n_basis - 1 { n + 1 } else { 0 }
                         }
-                        Key::Up => {
-                            min_prob *= 1.25;
-                            points.clear();
-                            point_map.iter_mut().for_each(|v| v.clear());
-                        }
-                        Key::Down => {
-                            min_prob *= 0.8;
-                            points.clear();
-                            point_map.iter_mut().for_each(|v| v.clear());
-                        }
-                        Key::R => {}
                         _ => {}
                     }
                 }
-            }
+            });
+
+            data_points
+                .iter()
+                .filter(|point| point.prob > min_prob)
+                .for_each(|point| window.draw_point(&point.position, &point.color));
+
+            window.draw_text(
+                &*format!("{} points", data_points.len()),
+                &Point2::new(10.0, 5.0),
+                window.width() as f32 / 25.0,
+                &Font::default(),
+                &Point3::new(1.0, 1.0, 1.0),
+            );
         }
     } else {
-        println!("SCF didn't converge / diverged")
+        panic!("SCF didn't converge!");
     }
 }
