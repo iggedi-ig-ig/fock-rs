@@ -71,3 +71,19 @@ pub const ETHYLENE: &MoleculeBlueprint = &MoleculeBlueprint {
         AtomBlueprint::new(Vector3::new(3.125, 0.0, 0.0), Hydrogen),
     ],
 };
+pub const BENZENE: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(0.00000e0, 0.0, 2.62672e0), Carbon),
+        AtomBlueprint::new(Vector3::new(0.00000e0, 0.0, 4.68652e0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(2.27481e0, 0.0, 1.31336e0), Carbon),
+        AtomBlueprint::new(Vector3::new(4.05865e0, 0.0, 2.34326e0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(2.27481e0, 0.0, -1.31336e0), Carbon),
+        AtomBlueprint::new(Vector3::new(4.05865e0, 0.0, -2.34326e0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(-8.44817e-16, 0.0, -2.62672e0), Carbon),
+        AtomBlueprint::new(Vector3::new(-1.50730e-15, 0.0, -4.68652e0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(-2.27481e0, 0.0, -1.31336e0), Carbon),
+        AtomBlueprint::new(Vector3::new(-4.05865e0, 0.0, -2.34326e0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(-2.27481e0, 0.0, 1.31336e0), Carbon),
+        AtomBlueprint::new(Vector3::new(-4.05865e0, 0.0, 2.34326e0), Hydrogen),
+    ],
+};
