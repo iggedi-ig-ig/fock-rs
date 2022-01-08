@@ -6,6 +6,12 @@ use basis_set::periodic_table::AtomType::{Carbon, Hydrogen, Nitrogen, Oxygen};
 use basis_set::BasisSet;
 use nalgebra::Vector3;
 
+macro_rules! bohr {
+    ($num:expr) => {
+        $num * 1.89
+    };
+}
+
 #[derive(Copy, Clone)]
 pub struct AtomBlueprint {
     position: Vector3<f64>,
@@ -41,16 +47,28 @@ impl<'a> MoleculeBlueprint<'a> {
 
 pub const WATER: &MoleculeBlueprint = &MoleculeBlueprint {
     atoms: &[
-        AtomBlueprint::new(Vector3::new(-1.743, 0.0, -0.25), Hydrogen),
+        AtomBlueprint::new(
+            Vector3::new(-0.78 * bohr!(0.96), -0.62 * bohr!(0.96), 0.0),
+            Hydrogen,
+        ),
         AtomBlueprint::new(Vector3::new(0.0, 0.0, 0.0), Oxygen),
-        AtomBlueprint::new(Vector3::new(1.743, 0.0, -0.25), Hydrogen),
+        AtomBlueprint::new(
+            Vector3::new(0.78 * bohr!(0.96), -0.62 * bohr!(0.96), 0.0),
+            Hydrogen,
+        ),
     ],
 };
 pub const NITRITE: &MoleculeBlueprint = &MoleculeBlueprint {
     atoms: &[
-        AtomBlueprint::new(Vector3::new(-2.13, -0.9932, 0.0), Oxygen),
+        AtomBlueprint::new(
+            Vector3::new(-0.881 * bohr!(1.24), -0.4732 * bohr!(1.24), 0.0),
+            Oxygen,
+        ),
         AtomBlueprint::new(Vector3::new(0.0, 0.0, 0.0), Nitrogen),
-        AtomBlueprint::new(Vector3::new(2.13, -0.9932, 0.0), Oxygen),
+        AtomBlueprint::new(
+            Vector3::new(0.881 * bohr!(1.24), -0.4732 * bohr!(1.24), 0.0),
+            Oxygen,
+        ),
     ],
 };
 pub const ETHENE: &MoleculeBlueprint = &MoleculeBlueprint {
@@ -87,3 +105,61 @@ pub const BENZENE: &MoleculeBlueprint = &MoleculeBlueprint {
         AtomBlueprint::new(Vector3::new(-4.05865e0, 0.0, 2.34326e0), Hydrogen),
     ],
 };
+pub const METHANE: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(0.0, 0.0, 0.0), Carbon),
+        AtomBlueprint::new(Vector3::new(0.0, bohr!(1.09), 0.0), Hydrogen),
+        AtomBlueprint::new(
+            Vector3::new(0.0, -0.3338 * bohr!(1.09), bohr!(1.09)),
+            Hydrogen,
+        ),
+        AtomBlueprint::new(
+            Vector3::new(
+                0.866 * bohr!(1.09),
+                -0.3338 * bohr!(1.09),
+                -0.5 * bohr!(1.09),
+            ),
+            Hydrogen,
+        ),
+        AtomBlueprint::new(
+            Vector3::new(
+                -0.866 * bohr!(1.09),
+                -0.3338 * bohr!(1.09),
+                -0.5 * bohr!(1.09),
+            ),
+            Hydrogen,
+        ),
+    ],
+};
+pub const AMMONIA: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(0.0, 0.0, 0.0), Nitrogen),
+        AtomBlueprint::new(
+            Vector3::new(0.0, -0.3338 * bohr!(1.017), bohr!(1.017)),
+            Hydrogen,
+        ),
+        AtomBlueprint::new(
+            Vector3::new(
+                0.866 * bohr!(1.02),
+                -0.3338 * bohr!(1.02),
+                -0.5 * bohr!(1.02),
+            ),
+            Hydrogen,
+        ),
+        AtomBlueprint::new(
+            Vector3::new(
+                -0.866 * bohr!(1.02),
+                -0.3338 * bohr!(1.02),
+                -0.5 * bohr!(1.02),
+            ),
+            Hydrogen,
+        ),
+    ],
+};
+
+#[test]
+pub fn gen_ammonia() {
+    for angle in (0..3).map(|k| k as f32 * 2.0 * std::f32::consts::FRAC_PI_3) {
+        println!("AtomBlueprint::new(Vector3::new({:0.3} * bohr!(1.02), -0.3338 * bohr!(1.02), {:0.3} * bohr!(1.02)), Hydrogen),", angle.sin(), angle.cos())
+    }
+}
