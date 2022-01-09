@@ -60,7 +60,7 @@ where
         let n_basis = basis.len();
         let n_elecs = (atoms
             .iter()
-            .fold(0, |acc, atom| acc + atom.valence_electrons()) as i32
+            .fold(0, |acc, atom| acc + atom.electron_count()) as i32
             - molecule_charge) as usize;
 
         let nuclear_repulsion_energy = {

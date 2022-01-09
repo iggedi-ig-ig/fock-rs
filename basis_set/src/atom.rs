@@ -30,7 +30,7 @@ impl Atom {
     pub fn basis(&self) -> &Vec<ContractedGaussian> {
         &self.basis
     }
-    pub fn valence_electrons(&self) -> usize {
+    pub fn electron_count(&self) -> usize {
         self.atom_type as usize
     }
     pub fn atom_type(&self) -> AtomType {
@@ -50,7 +50,7 @@ impl Display for Atom {
             f,
             "{:?} (electrons: {})\n\tPos: {:0.3}, {:0.3}, {:0.3}\n\tBasis Functions:",
             self.atom_type,
-            self.valence_electrons(),
+            self.electron_count(),
             self.position.x,
             self.position.y,
             self.position.z
