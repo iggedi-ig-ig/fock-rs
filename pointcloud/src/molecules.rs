@@ -6,6 +6,7 @@ use basis_set::periodic_table::AtomType::{Carbon, Hydrogen, Nitrogen, Oxygen};
 use basis_set::BasisSet;
 use nalgebra::Vector3;
 
+#[macro_export]
 macro_rules! bohr {
     ($num:expr) => {
         $num * 1.89
