@@ -8,13 +8,15 @@ pub fn hermitian(n: usize, mut func: impl FnMut(usize, usize) -> f64) -> DMatrix
     DMatrix::from_fn(n, n, |i, j| if i <= j { m[(i, j)] } else { m[(j, i)] })
 }
 
+pub fn eigs(matrix: DMatrix<f64>) -> (DMatrix<f64>, DVector<f64>) {
+    let eigs = SymmetricEigen::new(matrix);
+    (eigs.eigenvectors, eigs.eigenvalues)
+}
+
 // nalgebra doesn't return eigenvalues sorted in
 // ascending order, so this has to be done manually
 pub fn sorted_eigs(matrix: DMatrix<f64>) -> (DMatrix<f64>, DVector<f64>) {
-    let eigs = SymmetricEigen::new(matrix);
-
-    let eigenvectors = eigs.eigenvectors;
-    let eigenvalues = eigs.eigenvalues;
+    let (eigenvectors, eigenvalues) = eigs(matrix);
 
     let mut val_vec_pairs = eigenvalues
         .into_iter()

@@ -8,6 +8,7 @@ use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
 use nalgebra::{DMatrix, DVector};
+use std::io::{stdout, Write};
 use std::time::Instant;
 
 #[derive(Debug)]
@@ -106,22 +107,16 @@ where
         let transform = |m: &DMatrix<f64>| &transformation.transpose() * (m * &transformation);
         let transform_inv = |m: &DMatrix<f64>| &transformation * m;
 
+        let start = Instant::now();
         let mut density = DMatrix::from_element(n_basis, n_basis, 0.0f64);
         for iteration in 0..max_iters {
-            let guess = {
-                let multi = &multi;
-                let density = &density;
-
-                DMatrix::from_fn(n_basis, n_basis, |i, j| {
-                    (0..n_basis)
-                        .flat_map(|x| {
-                            (0..n_basis).map(move |y| {
-                                density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, x, y, j)])
-                            })
-                        })
-                        .sum::<f64>()
+            let guess = DMatrix::from_fn(n_basis, n_basis, |i, j| {
+                (0..n_basis).fold(0.0, |acc, x| {
+                    acc + (0..n_basis).fold(0.0, |acc, y| {
+                        acc + density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, x, y, j)])
+                    })
                 })
-            };
+            });
 
             let fock = &core_hamiltonian + &guess;
             let fock_prime = transform(&fock);
@@ -140,6 +135,11 @@ where
                 / n_basis as f64;
 
             if density_rms < epsilon {
+                println!(
+                    "\rSCF-Routine took {:0.4?} to converge ({} iterations)",
+                    start.elapsed(),
+                    iteration
+                );
                 let electronic_energy = 0.5 * (&new_density * (&core_hamiltonian + &fock)).trace();
 
                 return Some(HartreeFockResult {
@@ -153,6 +153,12 @@ where
                 });
             } else if !density_rms.is_normal() {
                 return None;
+            } else {
+                print!(
+                    "\rIteration {}: density rms: {:0.5e}",
+                    iteration, density_rms
+                );
+                stdout().flush().expect("failed to flush console");
             }
 
             density = new_density;
