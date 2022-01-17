@@ -55,6 +55,8 @@ pub enum BasisSetFamily {
     Pople,
     #[serde(rename = "sto")]
     SlaterType,
+    #[serde(rename = "dunning")]
+    Dunning,
 }
 
 #[derive(Deserialize, Debug)]
