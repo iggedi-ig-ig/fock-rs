@@ -1,8 +1,8 @@
-use crate::molecules::{AMMONIA, BENZENE, METHANE, NITRITE, WATER};
+use crate::molecules::{AMMONIA, BENZENE, HYDROGEN, METHANE, NITRITE, WATER};
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::text::Font;
 use kiss3d::window::Window;
-use nalgebra::{Point2, Point3, Translation3, Vector3};
+use nalgebra::{Point2, Point3, Translation3, Vector, Vector3};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
@@ -16,11 +16,11 @@ struct DataPoint {
     prob: f32,
 }
 
-const POINTS_PER_N: usize = 1_000_000;
-const POINTS_PER_ITER: usize = 25_000;
+const POINTS_PER_N: usize = 2_500_000;
+const POINTS_PER_ITER: usize = 50_000;
 
 fn main() {
-    let basis_set = &basis_set::basis_sets::BASIS_3_21G;
+    let basis_set = &basis_set::basis_sets::BASIS_6_311G;
     let molecule = BENZENE.build(basis_set);
     if let Some(result) = molecule.try_scf(5000, 1e-6, 0) {
         let n_basis = result.orbitals.basis_functions().len();
@@ -38,6 +38,33 @@ fn main() {
         let mut data_points = (0..n_basis).map(|_| Vec::new()).collect::<Vec<_>>();
         let mut n = 0;
         let mut min_prob = 0.02;
+        let (min, max): (Vector3<f64>, Vector3<f64>) =
+            molecule
+                .iter()
+                .fold((Vector3::zeros(), Vector3::zeros()), |(min, max), curr| {
+                    const EPSILON: f64 = 1e-4;
+                    let max_r = curr
+                        .basis()
+                        .iter()
+                        .flat_map(|basis| basis.primitives())
+                        .fold(0.0f64, |f, curr| {
+                            f.max(f64::sqrt(
+                                (f64::ln(curr.coefficient()) - f64::ln(EPSILON)) / curr.exponent(),
+                            ))
+                        });
+                    (
+                        Vector3::new(
+                            min.x.min(curr.position().x - max_r),
+                            min.y.min(curr.position().y - max_r),
+                            min.z.min(curr.position().z - max_r),
+                        ),
+                        Vector3::new(
+                            max.x.max(curr.position().x + max_r),
+                            max.y.max(curr.position().y + max_r),
+                            max.z.max(curr.position().z + max_r),
+                        ),
+                    )
+                });
         while window.render() {
             window.set_title(&*format!(
                 "Energy Level: {}/{} (E: {:+0.2}eV) | total energy: {:+0.2} Hartrees",
@@ -49,14 +76,12 @@ fn main() {
             let curr_n = if data_points[n].len() < POINTS_PER_N {
                 Some(n)
             } else {
-                (0..n_basis).find(|n| data_points[*n].len() < 1_000_000)
+                (0..n_basis).find(|n| data_points[*n].len() < POINTS_PER_N)
             };
             if let Some(n) = curr_n {
                 if data_points[n].len() < POINTS_PER_N {
                     for _ in 0..POINTS_PER_ITER {
-                        let point = (rng.gen::<Vector3<f64>>() - Vector3::repeat(0.5))
-                            .component_mul(&Vector3::new(7.5, 5.0, 7.5))
-                            * 2.0;
+                        let point = min + rng.gen::<Vector3<f64>>().component_mul(&(max - min));
                         let wave = result.orbitals.evaluate(point, n);
                         let prob = wave.powi(2);
 

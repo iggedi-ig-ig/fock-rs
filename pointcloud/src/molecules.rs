@@ -46,6 +46,12 @@ impl<'a> MoleculeBlueprint<'a> {
     }
 }
 
+pub const HYDROGEN: &MoleculeBlueprint = &MoleculeBlueprint {
+    atoms: &[
+        AtomBlueprint::new(Vector3::new(-0.8, 0.0, 0.0), Hydrogen),
+        AtomBlueprint::new(Vector3::new(0.8, 0.0, 0.0), Hydrogen),
+    ],
+};
 pub const WATER: &MoleculeBlueprint = &MoleculeBlueprint {
     atoms: &[
         AtomBlueprint::new(
