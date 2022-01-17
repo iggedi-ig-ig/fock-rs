@@ -64,7 +64,7 @@ where
             .fold(0, |acc, atom| acc + atom.electron_count()) as i32
             - molecule_charge) as usize;
 
-        let nuclear_repulsion_energy = {
+        let nuclear_repulsion = {
             let point_charges = &point_charges;
 
             (0..n_atoms)
@@ -101,10 +101,12 @@ where
         let transformation = {
             let (unitary, _) = utils::sorted_eigs(overlap.clone());
             let diagonalized = &unitary.transpose() * (&overlap * &unitary);
-            let diagonal = DMatrix::from_diagonal(&diagonalized.map_diagonal(|f| f.sqrt().recip()));
+            let diagonal = DMatrix::from_diagonal(&diagonalized.map_diagonal(|f| f.recip().sqrt()));
             &unitary * (&diagonal * &unitary.transpose())
         };
-        let transform = |m: &DMatrix<f64>| &transformation.transpose() * (m * &transformation);
+        let _transform_transpose = transformation.transpose();
+        let transform =
+            |m: &DMatrix<f64>| &_transform_transpose.transpose() * (m * &transformation);
         let transform_inv = |m: &DMatrix<f64>| &transformation * m;
 
         let start = Instant::now();
@@ -147,7 +149,7 @@ where
                     orbital_energies,
                     density_matrix: new_density,
                     electronic_energy,
-                    total_energy: nuclear_repulsion_energy + electronic_energy,
+                    total_energy: nuclear_repulsion + electronic_energy,
                     iterations: iteration,
                     n_electrons: n_elecs,
                 });

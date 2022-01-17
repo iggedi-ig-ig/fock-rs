@@ -20,7 +20,7 @@ fn _boys_impl(n: i32, t: f64, mut curr: f64, exp_mt: f64) -> f64 {
     curr
 }
 
-const DT: f64 = 0.1;
+const DT: f64 = 0.15;
 const MAX_TABULATED_T: f64 = 30.0;
 const MAX_TABULATED_N: i32 = 10;
 pub(crate) const N: usize = (MAX_TABULATED_T as f64 / DT) as usize;
