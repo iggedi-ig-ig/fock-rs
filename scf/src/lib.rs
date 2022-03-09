@@ -99,10 +99,10 @@ where
 
         let core_hamiltonian = kinetic + nuclear;
         let transformation = {
-            let (unitary, _) = utils::sorted_eigs(overlap.clone());
-            let diagonalized = &unitary.transpose() * (&overlap * &unitary);
+            let (eigs, _) = utils::sorted_eigs(overlap.clone());
+            let diagonalized = &eigs.transpose() * (&overlap * &eigs);
             let diagonal = DMatrix::from_diagonal(&diagonalized.map_diagonal(|f| f.recip().sqrt()));
-            &unitary * (&diagonal * &unitary.transpose())
+            &eigs * (&diagonal * &eigs.transpose())
         };
         let _transform_transpose = transformation.transpose();
         let transform =

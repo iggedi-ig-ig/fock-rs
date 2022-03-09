@@ -1,8 +1,8 @@
-use crate::molecules::{AMMONIA, BENZENE, HYDROGEN, METHANE, NITRITE, WATER};
+use crate::molecules::*;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::text::Font;
 use kiss3d::window::Window;
-use nalgebra::{Point2, Point3, Translation3, Vector, Vector3};
+use nalgebra::{Point2, Point3, Translation3, Vector3};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
@@ -20,8 +20,8 @@ const POINTS_PER_N: usize = 2_500_000;
 const POINTS_PER_ITER: usize = 50_000;
 
 fn main() {
-    let basis_set = &basis_set::basis_sets::BASIS_6_311G;
-    let molecule = BENZENE.build(basis_set);
+    let basis_set = &basis_set::basis_sets::BASIS_6_31G;
+    let molecule = WATER.build(basis_set);
     if let Some(result) = molecule.try_scf(5000, 1e-6, 0) {
         let n_basis = result.orbitals.basis_functions().len();
 
