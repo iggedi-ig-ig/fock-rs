@@ -1,11 +1,12 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
-use std::io::{stdout, Write};
+use log::info;
 use std::ops::Index;
 
+#[derive(Debug)]
 pub struct ElectronTensor {
-    n_basis: usize,
-    data: Vec<f64>,
+    pub n_basis: usize,
+    pub data: Vec<f64>,
 }
 
 impl ElectronTensor {
@@ -13,19 +14,12 @@ impl ElectronTensor {
         let n_basis = basis.len();
         let data = (0..n_basis)
             .flat_map(move |w| {
+                info!(
+                    "ERI-Formation progress: {w}/{n_basis} ({:0.3}%)",
+                    w as f32 / n_basis as f32 * 100f32
+                );
                 (0..n_basis).flat_map(move |z| {
                     (0..n_basis).flat_map(move |y| {
-                        if y % 5 == 0 {
-                            let progress = w * n_basis.pow(3) + z * n_basis.pow(2) + y * n_basis;
-                            let max = n_basis * (n_basis.pow(3) + n_basis.pow(2) + n_basis + 1);
-                            print!(
-                                "\rERI-Formation progess: {}/{} ({:0.3}%)",
-                                progress,
-                                max,
-                                progress as f32 / max as f32 * 100.0
-                            );
-                            stdout().flush().expect("failed to flush console");
-                        }
                         (0..n_basis).map(move |x| {
                             if x >= y && z >= w && x * (x + 1) / 2 + y >= z * (z + 1) / 2 + w {
                                 // TODO: implement screening routines

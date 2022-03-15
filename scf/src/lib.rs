@@ -10,7 +10,6 @@ use basis::BasisFunction;
 use basis_set::atom::Atom;
 use log::{debug, info, warn};
 use nalgebra::{DMatrix, DVector};
-use std::io::{stdout, Write};
 use std::time::Instant;
 
 #[derive(Debug)]

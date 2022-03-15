@@ -2,11 +2,10 @@
 
 use basis_set::atom::Atom;
 use basis_set::periodic_table::AtomType;
-use basis_set::periodic_table::AtomType::{Carbon, Hydrogen, Nitrogen, Oxygen};
+use basis_set::periodic_table::AtomType::*;
 use basis_set::BasisSet;
 use nalgebra::Vector3;
 
-#[macro_export]
 macro_rules! bohr {
     ($num:expr) => {
         $num * 1.89
@@ -62,6 +61,7 @@ impl<'a> MoleculeBlueprint<'a> {
 
 define_molecules! {
     HYDROGEN = [Hydrogen = (-0.8, 0.0, 0.0), Hydrogen = (0.8, 0.0, 0.0)],
+    HELIUM_HYDRIDE = [Hydrogen = (-0.7, 0.0, 0.0), Helium = (0.7, 0.0, 0.0)],
     WATER = [
         Hydrogen = (-0.78 * bohr!(0.96), -0.62 * bohr!(0.96), 0.0),
         Oxygen = (0.0, 0.0, 0.0),

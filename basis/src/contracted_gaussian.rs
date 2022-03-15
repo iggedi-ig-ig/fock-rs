@@ -107,7 +107,6 @@ impl GaussianPrimitive {
                 .sum::<f64>()
     }
 
-    // TODO: check if this is correct
     #[allow(clippy::too_many_arguments, clippy::many_single_char_names)]
     /// four-electron integrals between four primitive gaussians
     fn _electron_repulsion(
