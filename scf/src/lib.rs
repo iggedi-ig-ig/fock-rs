@@ -4,9 +4,11 @@ pub mod utils;
 
 use crate::electron_tensor::ElectronTensor;
 use crate::molecular_orbitals::MolecularOrbitals;
+use crate::utils::hermitian;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
+use log::{debug, info, warn};
 use nalgebra::{DMatrix, DVector};
 use std::io::{stdout, Write};
 use std::time::Instant;
@@ -64,6 +66,10 @@ where
             .fold(0, |acc, atom| acc + atom.electron_count()) as i32
             - molecule_charge) as usize;
 
+        if n_elecs % 2 != 0 {
+            warn!("restricted hartree fock only works properly if all orbitals are fully occupied, but the specified molecule has an uneven amount of electrons");
+        }
+
         let nuclear_repulsion = {
             let point_charges = &point_charges;
 
@@ -83,52 +89,60 @@ where
         let overlap = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::overlap_int(&basis[i], &basis[j])
         });
+        debug!("overlap: {overlap:0.5}");
         let kinetic = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::kinetic_int(&basis[i], &basis[j])
         });
+        debug!("kinetic: {kinetic:0.5}");
         let nuclear = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
         });
+        debug!("nuclear attraction: {nuclear:0.5}");
 
         let start = Instant::now();
         let multi = ElectronTensor::from_basis(&basis);
-        println!(
-            "\rMulti-Electron tensor formation took {:0.4?}",
+        debug!(
+            "electron tensor: {:0.5?}",
+            multi
+                .data
+                .iter()
+                .filter(|f| !f.is_nan())
+                .collect::<Vec<_>>()
+        );
+        info!(
+            "Multi-Electron tensor formation took {:0.4?}",
             start.elapsed()
         );
 
         let core_hamiltonian = kinetic + nuclear;
-        let transformation = {
-            let (eigs, _) = utils::sorted_eigs(overlap.clone());
-            let diagonalized = &eigs.transpose() * (&overlap * &eigs);
-            let diagonal = DMatrix::from_diagonal(&diagonalized.map_diagonal(|f| f.recip().sqrt()));
-            &eigs * (&diagonal * &eigs.transpose())
+        let transform = {
+            let (u, _) = utils::eigs(overlap.clone());
+            let diagonal_matrix = &u.transpose() * (&overlap * &u);
+
+            let diagonal_inv_sqrt =
+                DMatrix::from_diagonal(&diagonal_matrix.map_diagonal(|f| f.sqrt().recip()));
+            &u * (diagonal_inv_sqrt * &u.transpose())
         };
-        let _transform_transpose = transformation.transpose();
-        let transform =
-            |m: &DMatrix<f64>| &_transform_transpose.transpose() * (m * &transformation);
-        let transform_inv = |m: &DMatrix<f64>| &transformation * m;
 
         let start = Instant::now();
         let mut density = DMatrix::from_element(n_basis, n_basis, 0.0f64);
-        for iteration in 0..max_iters {
-            let guess = DMatrix::from_fn(n_basis, n_basis, |i, j| {
+        for iter in 0..max_iters {
+            let guess = hermitian(n_basis, |i, j| {
                 (0..n_basis).fold(0.0, |acc, x| {
                     acc + (0..n_basis).fold(0.0, |acc, y| {
-                        acc + density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, x, y, j)])
+                        acc + density[(x, y)] * (multi[(i, j, y, x)] - 0.5 * multi[(i, x, y, j)])
                     })
                 })
             });
 
             let fock = &core_hamiltonian + &guess;
-            let fock_prime = transform(&fock);
+            let fock_prime = &transform.transpose() * (&fock * &transform);
 
             let (coeffs_prime, orbital_energies) = utils::sorted_eigs(fock_prime);
-            let coeffs = transform_inv(&coeffs_prime);
+            let coeffs = &transform * &coeffs_prime;
 
-            let new_density = DMatrix::from_fn(n_basis, n_basis, |i, j| {
-                2.0 * (0..(n_elecs + 1) / 2)
-                    .fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
+            let new_density = utils::hermitian(n_basis, |i, j| {
+                2.0 * (0..n_elecs / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
             let density_rms = density
@@ -137,12 +151,27 @@ where
                 / n_basis as f64;
 
             if density_rms < epsilon {
+                let pad = (0..35).map(|_| '-').collect::<String>();
+                println!("+ {pad} SCF-Routine Finished {pad} +",);
                 println!(
-                    "\rSCF-Routine took {:0.4?} to converge ({} iterations)",
+                    "SCF took {:0.4?} to converge ({iter} iters)",
                     start.elapsed(),
-                    iteration
                 );
-                let electronic_energy = 0.5 * (&new_density * (&core_hamiltonian + &fock)).trace();
+                let electronic_energy = 0.5 * (&density * (&core_hamiltonian + &fock)).trace();
+
+                println!("Electronic Energy: {electronic_energy:0.4}");
+                println!("Nuclear Repulsion Energy: {nuclear_repulsion:0.4}");
+                println!(
+                    "Total Hartree-Fock Energy: {:0.4}",
+                    electronic_energy + nuclear_repulsion
+                );
+                println!("Final Density Matrix: {new_density:0.5}");
+                println!("Final Coefficient Matrix: {coeffs:0.5}");
+                println!(
+                    "Final Orbital Energies: {:0.5}",
+                    orbital_energies.transpose()
+                );
+                println!("+ {pad} SCF-Routine Finished {pad} +",);
 
                 return Some(HartreeFockResult {
                     orbitals: MolecularOrbitals::new(basis, coeffs),
@@ -150,17 +179,13 @@ where
                     density_matrix: new_density,
                     electronic_energy,
                     total_energy: nuclear_repulsion + electronic_energy,
-                    iterations: iteration,
+                    iterations: iter,
                     n_electrons: n_elecs,
                 });
             } else if !density_rms.is_normal() {
                 return None;
             } else {
-                print!(
-                    "\rIteration {}: density rms: {:0.5e}",
-                    iteration, density_rms
-                );
-                stdout().flush().expect("failed to flush console");
+                debug!("Iteration {}: density rms: {:0.5e}", iter, density_rms);
             }
 
             density = new_density;

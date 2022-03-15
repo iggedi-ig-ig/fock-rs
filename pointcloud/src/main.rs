@@ -2,6 +2,7 @@ use crate::molecules::*;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::text::Font;
 use kiss3d::window::Window;
+use log::LevelFilter;
 use nalgebra::{Point2, Point3, Translation3, Vector3};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
@@ -20,9 +21,13 @@ const POINTS_PER_N: usize = 2_500_000;
 const POINTS_PER_ITER: usize = 50_000;
 
 fn main() {
-    let basis_set = &basis_set::basis_sets::BASIS_6_31G;
-    let molecule = WATER.build(basis_set);
-    if let Some(result) = molecule.try_scf(5000, 1e-6, 0) {
+    env_logger::builder()
+        .filter_level(LevelFilter::Debug)
+        .init();
+
+    let basis_set = &basis_set::basis_sets::BASIS_STO_3G;
+    let molecule = HELIUM_HYDRIDE.build(basis_set);
+    if let Some(result) = molecule.try_scf(5000, 1e-6, 1) {
         let n_basis = result.orbitals.basis_functions().len();
 
         let mut rng = XorShiftRng::from_entropy();
@@ -67,10 +72,10 @@ fn main() {
                 });
         while window.render() {
             window.set_title(&*format!(
-                "Energy Level: {}/{} (E: {:+0.2}eV) | total energy: {:+0.2} Hartrees",
+                "Energy Level: {}/{} (E: {:+0.5} Hartrees) | total energy: {:+0.5} Hartrees",
                 n,
                 n_basis - 1,
-                result.orbital_energies[n] * 27.211, // <-- Hartree to eV conversion factor,
+                result.orbital_energies[n], // <-- Hartree to eV conversion factor,
                 result.total_energy
             ));
             let curr_n = if data_points[n].len() < POINTS_PER_N {
