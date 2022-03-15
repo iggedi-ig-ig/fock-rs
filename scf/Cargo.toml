@@ -10,3 +10,4 @@ basis_set = { path = "../basis_set" }
 basis = { path = "../basis" }
 boys = { path = "../boys" }
 nalgebra = "0.29.0"
+log = "0.4.14"
