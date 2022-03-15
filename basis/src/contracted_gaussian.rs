@@ -143,8 +143,7 @@ impl GaussianPrimitive {
                             (0..=l3 + l4).flat_map(move |t2| {
                                 (0..=m3 + m4).flat_map(move |u2| {
                                     (0..=n3 + n4).map(move |v2| {
-                                        (-1.0f64).powi(t2 + u2 + v2)
-                                            * hermite_expansion(l1, l2, t1, diff_ab.x, a, b)
+                                        hermite_expansion(l1, l2, t1, diff_ab.x, a, b)
                                             * hermite_expansion(m1, m2, u1, diff_ab.y, a, b)
                                             * hermite_expansion(n1, n2, v1, diff_ab.z, a, b)
                                             * hermite_expansion(l3, l4, t2, diff_cd.x, c, d)
@@ -159,6 +158,7 @@ impl GaussianPrimitive {
                                                 comp_diff,
                                                 comp_dist_sq,
                                             )
+                                            * if (t2 + u2 + v2) % 2 == 0 { 1.0 } else { -1.0 }
                                     })
                                 })
                             })
