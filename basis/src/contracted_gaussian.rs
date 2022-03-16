@@ -62,9 +62,9 @@ impl GaussianPrimitive {
                 + Self::_overlap(a, &Self::_add_ijk(b, [0, 2, 0]), diff)
                 + Self::_overlap(a, &Self::_add_ijk(b, [0, 0, 2]), diff));
         let term2 =
-            -0.5 * (l2 * (l2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(a, [-2, 0, 0]), diff)
-                + (m2 * (m2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(a, [0, -2, 0]), diff)
-                + (n2 * (n2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(a, [0, 0, -2]), diff);
+            -0.5 * (l2 * (l2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [-2, 0, 0]), diff)
+                + (m2 * (m2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, -2, 0]), diff)
+                + (n2 * (n2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, 0, -2]), diff);
         term0 + term1 + term2
     }
 
