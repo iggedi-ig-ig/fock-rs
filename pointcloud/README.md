@@ -4,3 +4,5 @@ The points are colored based on the sign of the corresponding wave function valu
 
 Example (pi orbital of benzene):
 ![plot](https://i.imgur.com/OLop4OA.png)
+
+Note that this example is from an earlier state, so don't mind the incorrect energy values.

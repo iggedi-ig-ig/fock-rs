@@ -100,14 +100,6 @@ where
 
         let start = Instant::now();
         let multi = ElectronTensor::from_basis(&basis);
-        debug!(
-            "electron tensor: {:0.5?}",
-            multi
-                .data
-                .iter()
-                .filter(|f| !f.is_nan())
-                .collect::<Vec<_>>()
-        );
         info!(
             "Multi-Electron tensor formation took {:0.4?}",
             start.elapsed()
@@ -149,6 +141,7 @@ where
                 .sqrt()
                 / n_basis as f64;
 
+            let electronic_energy = 0.5 * (&density * (2.0 * &core_hamiltonian + &guess)).trace();
             if density_rms < epsilon {
                 let pad = (0..35).map(|_| '-').collect::<String>();
                 println!("+ {pad} SCF-Routine Finished {pad} +",);
@@ -156,7 +149,6 @@ where
                     "SCF took {:0.4?} to converge ({iter} iters)",
                     start.elapsed(),
                 );
-                let electronic_energy = 0.5 * (&density * (&core_hamiltonian + &fock)).trace();
 
                 println!("Electronic Energy: {electronic_energy:0.4}");
                 println!("Nuclear Repulsion Energy: {nuclear_repulsion:0.4}");
@@ -184,7 +176,10 @@ where
             } else if !density_rms.is_normal() {
                 return None;
             } else {
-                debug!("Iteration {}: density rms: {:0.5e}", iter, density_rms);
+                debug!(
+                    "Iteration {iter}: density rms: {density_rms:0.5e}, energy: {:0.5}",
+                    electronic_energy + nuclear_repulsion
+                );
             }
 
             density = new_density;
