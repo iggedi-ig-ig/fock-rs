@@ -61,10 +61,10 @@ impl GaussianPrimitive {
             * (Self::_overlap(a, &Self::_add_ijk(b, [2, 0, 0]), diff)
                 + Self::_overlap(a, &Self::_add_ijk(b, [0, 2, 0]), diff)
                 + Self::_overlap(a, &Self::_add_ijk(b, [0, 0, 2]), diff));
-        let term2 =
-            -0.5 * (l2 * (l2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [-2, 0, 0]), diff)
+        let term2 = -0.5
+            * ((l2 * (l2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [-2, 0, 0]), diff)
                 + (m2 * (m2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, -2, 0]), diff)
-                + (n2 * (n2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, 0, -2]), diff);
+                + (n2 * (n2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, 0, -2]), diff));
         term0 + term1 + term2
     }
 
@@ -81,7 +81,7 @@ impl GaussianPrimitive {
 
         let p = a.exponent() + b.exponent();
 
-        let diff_comp_nucleus = prod_center - point_charge.position;
+        let diff_comp_nucleus = point_charge.position - prod_center;
         let dist_sq_comp_nucleus = diff_comp_nucleus.norm_squared();
 
         -point_charge.charge * std::f64::consts::TAU / p
