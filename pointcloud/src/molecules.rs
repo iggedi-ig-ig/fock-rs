@@ -104,7 +104,8 @@ define_molecules! {
         Carbon = (0.0, 0.0, 0.0),
         Hydrogen = (0.0, bohr!(1.09), 0.0),
         Hydrogen = (0.0, -0.3338 * bohr!(1.09), bohr!(1.09)),
-        Hydrogen = (0.866 * bohr!(1.09), -0.3338 * bohr!(1.09), -0.5 * bohr!(1.09))
+        Hydrogen = (0.866 * bohr!(1.09), -0.3338 * bohr!(1.09), -0.5 * bohr!(1.09)),
+        Hydrogen = (-0.866 * bohr!(1.09), -0.3338 * bohr!(1.09), -0.5 * bohr!(1.09))
     ],
     AMMONIA = [
         Nitrogen = (0.0, 0.0, 0.0),
