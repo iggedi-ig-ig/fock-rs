@@ -1,3 +1,5 @@
-This is an implementation of the boys function based on downwards recursion with a lookup table
+# Boys Function
 
-![alt text](http://latex2png.com/pngs/b209678181deb5b13e527b0204093215.png)
+This is an implementation of the boys function based on downwards recursion with a lookup table. It's accurate to at least 2 decimal places, which is good enough for pedagogical purposes.
+
+![plot](http://latex2png.com/pngs/b209678181deb5b13e527b0204093215.png)
