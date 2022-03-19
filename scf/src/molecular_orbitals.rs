@@ -4,7 +4,6 @@ use nalgebra::{DMatrix, DVector, Vector3};
 use std::ops::Index;
 
 pub struct MolecularOrbitals {
-    coeff_matrix: DMatrix<f64>,
     molecular_orbitals: Vec<MolecularOrbital>,
 }
 
@@ -33,7 +32,7 @@ impl MolecularOrbital {
 impl MolecularOrbitals {
     const MIN_COEFFICIENT_MAGNITUDE: f64 = 0.05;
 
-    pub fn new(basis_functions: Vec<ContractedGaussian>, coeff_matrix: DMatrix<f64>) -> Self {
+    pub fn new(basis_functions: Vec<ContractedGaussian>, coeff_matrix: &DMatrix<f64>) -> Self {
         let molecular_orbitals = coeff_matrix
             .column_iter()
             .map(|column| {
@@ -53,14 +52,7 @@ impl MolecularOrbitals {
             })
             .collect();
 
-        Self {
-            coeff_matrix,
-            molecular_orbitals,
-        }
-    }
-
-    pub fn coeff_matrix(&self) -> &DMatrix<f64> {
-        &self.coeff_matrix
+        Self { molecular_orbitals }
     }
 }
 

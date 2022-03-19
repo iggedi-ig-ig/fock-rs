@@ -12,15 +12,16 @@ use log::{debug, info, warn};
 use nalgebra::{DMatrix, DVector};
 use std::time::Instant;
 
-#[derive(Debug)]
 pub struct HartreeFockResult {
     pub orbitals: MolecularOrbitals,
     pub orbital_energies: DVector<f64>,
     pub density_matrix: DMatrix<f64>,
+    pub coefficient_matrix: DMatrix<f64>,
     pub electronic_energy: f64,
     pub total_energy: f64,
     pub iterations: usize,
     pub n_electrons: usize,
+    pub n_basis: usize,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -60,12 +61,12 @@ where
 
         let n_atoms = atoms.len();
         let n_basis = basis.len();
-        let n_elecs = (atoms
+        let n_electrons = (atoms
             .iter()
             .fold(0, |acc, atom| acc + atom.electron_count()) as i32
             - molecule_charge) as usize;
 
-        if n_elecs % 2 != 0 {
+        if n_electrons % 2 != 0 {
             warn!("restricted hartree fock only works properly if all orbitals are fully occupied, but the specified molecule has an uneven amount of electrons");
         }
 
@@ -88,20 +89,20 @@ where
         let overlap = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::overlap_int(&basis[i], &basis[j])
         });
-        debug!("overlap: {overlap:0.5}");
+        debug!("overlap: {overlap:0.3}");
         let kinetic = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::kinetic_int(&basis[i], &basis[j])
         });
-        debug!("kinetic: {kinetic:0.5}");
+        debug!("kinetic: {kinetic:0.3}");
         let nuclear = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
         });
-        debug!("nuclear attraction: {nuclear:0.5}");
+        debug!("nuclear attraction: {nuclear:0.3}");
 
         let start = Instant::now();
         let multi = ElectronTensor::from_basis(&basis);
         info!(
-            "Multi-Electron tensor formation took {:0.4?}",
+            "Multi-Electron tensor formation took {:.1?}",
             start.elapsed()
         );
 
@@ -133,7 +134,7 @@ where
             let coeffs = &transform * &coeffs_prime;
 
             let new_density = utils::hermitian(n_basis, |i, j| {
-                2.0 * (0..n_elecs / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
+                2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
             let density_rms = density
@@ -142,41 +143,35 @@ where
                 / n_basis as f64;
 
             let electronic_energy = 0.5 * (&density * (2.0 * &core_hamiltonian + &guess)).trace();
-            if density_rms < epsilon {
+            if density_rms < epsilon || iter == max_iters {
+                let hf_energy = electronic_energy + nuclear_repulsion;
                 let pad = (0..35).map(|_| '-').collect::<String>();
-                println!("+ {pad} SCF-Routine Finished {pad} +",);
-                println!(
-                    "SCF took {:0.4?} to converge ({iter} iters)",
-                    start.elapsed(),
-                );
 
-                println!("Electronic Energy: {electronic_energy:0.4}");
-                println!("Nuclear Repulsion Energy: {nuclear_repulsion:0.4}");
-                println!(
-                    "Total Hartree-Fock Energy: {:0.4}",
-                    electronic_energy + nuclear_repulsion
-                );
-                println!("Final Density Matrix: {new_density:0.5}");
-                println!("Final Coefficient Matrix: {coeffs:0.5}");
-                println!(
-                    "Final Orbital Energies: {:0.5}",
-                    orbital_energies.transpose()
-                );
+                println!("+ {pad} SCF-Routine Finished {pad} +",);
+                println!("SCF took {:0.4?} to converge ({iter})", start.elapsed());
+                println!("Electronic Energy: {electronic_energy:0.3}");
+                println!("Nuclear Repulsion Energy: {nuclear_repulsion:0.3}");
+                println!("Hartree-Fock Energy: {hf_energy:0.3}",);
+                println!("Density Matrix: {new_density:0.3}");
+                println!("Coefficient Matrix: {coeffs:0.3}");
+                println!("Orbital Energies: {:0.5}", orbital_energies.transpose());
                 println!("+ {pad} SCF-Routine Finished {pad} +",);
 
                 return Some(HartreeFockResult {
-                    orbitals: MolecularOrbitals::new(basis, coeffs),
+                    orbitals: MolecularOrbitals::new(basis, &coeffs),
                     orbital_energies,
                     density_matrix: new_density,
+                    coefficient_matrix: coeffs,
                     electronic_energy,
                     total_energy: nuclear_repulsion + electronic_energy,
                     iterations: iter,
-                    n_electrons: n_elecs,
+                    n_electrons,
+                    n_basis,
                 });
             } else if !density_rms.is_normal() {
                 return None;
             } else {
-                debug!(
+                info!(
                     "Iteration {iter}: density rms: {density_rms:0.5e}, energy: {:0.5}",
                     electronic_energy + nuclear_repulsion
                 );
