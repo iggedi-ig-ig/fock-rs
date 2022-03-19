@@ -1,55 +1,84 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use log::info;
+use nalgebra::DMatrix;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::ops::Index;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct IntegralIndex {
+    x: usize,
+    y: usize,
+    z: usize,
+    w: usize,
+}
+
+impl IntegralIndex {
+    pub fn new(index: (usize, usize, usize, usize)) -> Self {
+        let (x, y, z, w) = Self::correct_order(index);
+        Self { x, y, z, w }
+    }
+
+    pub fn correct_order(
+        (x, y, z, w): (usize, usize, usize, usize),
+    ) -> (usize, usize, usize, usize) {
+        let (x, y) = if x > y { (x, y) } else { (y, x) };
+        let (z, w) = if z > w { (z, w) } else { (w, z) };
+
+        let xy = x * (x + 1) / 2 + y;
+        let zw = z * (z + 1) / 2 + w;
+
+        if xy > zw {
+            (x, y, z, w)
+        } else {
+            (z, w, x, y)
+        }
+    }
+}
+
 pub struct ElectronTensor {
-    pub n_basis: usize,
-    pub data: Vec<f64>,
+    data: HashMap<IntegralIndex, f64>,
 }
 
 impl ElectronTensor {
     pub fn from_basis(basis: &[ContractedGaussian]) -> Self {
         let n_basis = basis.len();
-        let data = (0..n_basis)
-            .flat_map(move |w| {
-                info!(
-                    "ERI-Formation progress: {w}/{n_basis} ({:0.3}%)",
-                    w as f32 / n_basis as f32 * 100f32
-                );
-                (0..n_basis).flat_map(move |z| {
-                    (0..n_basis).flat_map(move |y| {
-                        (0..n_basis).map(move |x| {
-                            if x >= y && z >= w && x * (x + 1) / 2 + y >= z * (z + 1) / 2 + w {
-                                // TODO: implement screening routines
-                                ContractedGaussian::electron_repulsion_int(
-                                    &basis[x], &basis[y], &basis[z], &basis[w],
-                                )
-                            } else {
-                                f64::NAN
-                            }
-                        })
-                    })
-                })
-            })
-            .collect::<Vec<_>>();
+        let mut data = HashMap::new();
 
-        Self { n_basis, data }
+        for w in 0..n_basis {
+            let perc = w as f32 / n_basis as f32 * 100.0;
+            info!("Integral quadruplet {w}/{n_basis} ({perc:.1}% done)",);
+            for z in 0..n_basis {
+                for y in 0..n_basis {
+                    for x in 0..n_basis {
+                        let index = IntegralIndex::new((x, y, z, w));
+                        data.entry(index).or_insert_with(|| {
+                            ContractedGaussian::electron_repulsion_int(
+                                &basis[x], &basis[y], &basis[z], &basis[w],
+                            )
+                        });
+                    }
+                }
+            }
+        }
+
+        Self { data }
     }
 }
 
 impl Index<(usize, usize, usize, usize)> for ElectronTensor {
     type Output = f64;
 
-    fn index(&self, (x, y, z, w): (usize, usize, usize, usize)) -> &Self::Output {
-        let (x, y) = if x > y { (x, y) } else { (y, x) };
-        let (z, w) = if z > w { (z, w) } else { (w, z) };
-        let (x, y, z, w) = if x * (x + 1) / 2 + y >= z * (z + 1) / 2 + w {
-            (x, y, z, w)
-        } else {
-            (z, w, x, y)
-        };
-        &self.data[x + y * self.n_basis + z * self.n_basis.pow(2) + w * self.n_basis.pow(3)]
+    fn index(&self, index: (usize, usize, usize, usize)) -> &Self::Output {
+        &self.data[&IntegralIndex::new(index)]
+    }
+}
+
+impl Index<IntegralIndex> for ElectronTensor {
+    type Output = f64;
+
+    fn index(&self, index: IntegralIndex) -> &Self::Output {
+        &self.data[&index]
     }
 }
