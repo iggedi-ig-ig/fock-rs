@@ -4,7 +4,6 @@ pub mod utils;
 
 use crate::electron_tensor::ElectronTensor;
 use crate::molecular_orbitals::MolecularOrbitals;
-use crate::utils::hermitian;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
@@ -116,13 +115,28 @@ where
             &u * (diagonal_inv_sqrt * &u.transpose())
         };
 
+        // TODO: check if this is correct, as energies in the first
+        //  iteration of SCF-Cycle is a bit far off sometimes
+        let mut density = {
+            let hamiltonian_eht = utils::hermitian(n_basis, |i, j| {
+                0.875 * overlap[(i, j)] * (core_hamiltonian[(i, i)] + core_hamiltonian[(j, j)])
+            });
+
+            let transformed = &transform.transpose() * (&hamiltonian_eht * &transform);
+            let (coeffs_prime, _orbital_energies) = utils::sorted_eigs(transformed);
+            let coeffs = &transform * coeffs_prime;
+
+            utils::hermitian(n_basis, |i, j| {
+                2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
+            })
+        };
+
         let start = Instant::now();
-        let mut density = DMatrix::from_element(n_basis, n_basis, 0.0f64);
-        for iter in 0..max_iters {
-            let guess = hermitian(n_basis, |i, j| {
+        for iter in 0..=max_iters {
+            let guess = utils::hermitian(n_basis, |i, j| {
                 (0..n_basis).fold(0.0, |acc, x| {
                     acc + (0..n_basis).fold(0.0, |acc, y| {
-                        acc + density[(x, y)] * (multi[(i, j, y, x)] - 0.5 * multi[(i, x, y, j)])
+                        acc + density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)])
                     })
                 })
             });
@@ -138,29 +152,32 @@ where
             });
 
             let density_rms = density
-                .zip_fold(&new_density, 0.0, |acc, new, old| acc + (new - old).powi(2))
+                .diagonal()
+                .zip_fold(&new_density.diagonal(), 0.0, |acc, new, old| {
+                    acc + (new - old).powi(2)
+                })
                 .sqrt()
                 / n_basis as f64;
+
+            density = new_density;
 
             let electronic_energy = 0.5 * (&density * (2.0 * &core_hamiltonian + &guess)).trace();
             if density_rms < epsilon || iter == max_iters {
                 let hf_energy = electronic_energy + nuclear_repulsion;
                 let pad = (0..35).map(|_| '-').collect::<String>();
 
-                println!("+ {pad} SCF-Routine Finished {pad} +",);
-                println!("SCF took {:0.4?} to converge ({iter})", start.elapsed());
-                println!("Electronic Energy: {electronic_energy:0.3}");
-                println!("Nuclear Repulsion Energy: {nuclear_repulsion:0.3}");
-                println!("Hartree-Fock Energy: {hf_energy:0.3}",);
-                println!("Density Matrix: {new_density:0.3}");
-                println!("Coefficient Matrix: {coeffs:0.3}");
-                println!("Orbital Energies: {:0.5}", orbital_energies.transpose());
-                println!("+ {pad} SCF-Routine Finished {pad} +",);
+                info!("+ {pad} SCF-Routine Finished {pad} +",);
+                info!("SCF took {:0.4?} to converge ({iter})", start.elapsed());
+                info!("Electronic Energy: {electronic_energy:0.3}");
+                info!("Nuclear Repulsion Energy: {nuclear_repulsion:0.3}");
+                info!("Hartree-Fock Energy: {hf_energy:0.3}",);
+                info!("Orbital Energies: {:0.5}", orbital_energies.transpose());
+                info!("+ {pad} SCF-Routine Finished {pad} +",);
 
                 return Some(HartreeFockResult {
                     orbitals: MolecularOrbitals::new(basis, &coeffs),
                     orbital_energies,
-                    density_matrix: new_density,
+                    density_matrix: density,
                     coefficient_matrix: coeffs,
                     electronic_energy,
                     total_energy: nuclear_repulsion + electronic_energy,
@@ -176,8 +193,6 @@ where
                     electronic_energy + nuclear_repulsion
                 );
             }
-
-            density = new_density;
         }
         None
     }
