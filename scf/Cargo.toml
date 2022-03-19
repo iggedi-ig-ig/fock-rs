@@ -11,3 +11,4 @@ basis = { path = "../basis" }
 boys = { path = "../boys" }
 nalgebra = "0.29.0"
 log = "0.4.14"
+rayon = "1.5.1"

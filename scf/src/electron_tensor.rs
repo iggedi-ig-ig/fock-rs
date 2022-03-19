@@ -1,9 +1,11 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use log::info;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
+use std::sync::{Arc, Mutex};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct IntegralIndex {
@@ -43,26 +45,39 @@ pub struct ElectronTensor {
 impl ElectronTensor {
     pub fn from_basis(basis: &[ContractedGaussian]) -> Self {
         let n_basis = basis.len();
-        let mut data = HashMap::new();
+        let n_integrals = (n_basis.pow(4) + 8 + 1) / 8;
+        let data = Arc::new(Mutex::new(HashMap::new()));
 
-        for w in 0..n_basis {
-            let perc = w as f32 / n_basis as f32 * 100.0;
-            info!("Integral quadruplet {w}/{n_basis} ({perc:.1}% done)",);
-            for z in 0..n_basis {
-                for y in 0..n_basis {
-                    for x in 0..n_basis {
+        (0..n_basis).into_par_iter().for_each(|w| {
+            (w..n_basis).for_each(|z| {
+                (0..n_basis).for_each(|y| {
+                    (0..n_basis).for_each(|x| {
                         let index = IntegralIndex::new((x, y, z, w));
-                        data.entry(index).or_insert_with(|| {
-                            ContractedGaussian::electron_repulsion_int(
-                                &basis[x], &basis[y], &basis[z], &basis[w],
-                            )
-                        });
-                    }
-                }
-            }
-        }
 
-        Self { data }
+                        let lock = data.lock().unwrap();
+                        if !lock.contains_key(&index) {
+                            // drop lock so other threads can continue working
+                            drop(lock);
+
+                            let integral = ContractedGaussian::electron_repulsion_int(
+                                &basis[x], &basis[y], &basis[z], &basis[w],
+                            );
+
+                            data.lock().unwrap().insert(index, integral);
+                        }
+                    })
+                })
+            });
+            let amount = data.lock().unwrap().len();
+            info!(
+                "{amount} integrals computed, {:.1}% done",
+                (amount as f32 / n_integrals as f32).min(1.0) * 100.0
+            );
+        });
+
+        Self {
+            data: Arc::try_unwrap(data).unwrap().into_inner().unwrap(),
+        }
     }
 }
 
