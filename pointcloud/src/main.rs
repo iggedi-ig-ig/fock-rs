@@ -26,9 +26,9 @@ fn main() {
         .init();
 
     let basis_set = &basis_set::basis_sets::BASIS_STO_3G;
-    let molecule = HELIUM_HYDRIDE.build(basis_set);
-    if let Some(result) = molecule.try_scf(5000, 1e-6, 1) {
-        let n_basis = result.orbitals.basis_functions().len();
+    let molecule = BENZENE.build(basis_set);
+    if let Some(result) = molecule.try_scf(1000, 1e-6, 0) {
+        let n_basis = result.n_basis;
 
         let mut rng = XorShiftRng::from_entropy();
         let mut window = Window::new("window");
@@ -87,7 +87,7 @@ fn main() {
                 if data_points[n].len() < POINTS_PER_N {
                     for _ in 0..POINTS_PER_ITER {
                         let point = min + rng.gen::<Vector3<f64>>().component_mul(&(max - min));
-                        let wave = result.orbitals.evaluate(point, n);
+                        let wave = result.orbitals[n].evaluate(&point);
                         let prob = wave.powi(2);
 
                         data_points[n].push(DataPoint {

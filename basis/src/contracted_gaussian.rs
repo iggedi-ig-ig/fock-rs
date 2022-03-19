@@ -225,18 +225,19 @@ impl BasisFunction for ContractedGaussian {
     }
 
     fn electron_repulsion_int(a: &Self, b: &Self, c: &Self, d: &Self) -> f64 {
-        let diff_ab = b.position() - a.position();
-        let diff_cd = d.position() - c.position();
+        let a_pos = a.position();
+        let b_pos = b.position();
+        let c_pos = c.position();
+        let d_pos = d.position();
+
+        let diff_ab = b_pos - a_pos;
+        let diff_cd = d_pos - c_pos;
+
         (0..a.primitives.len())
             .flat_map(move |i| {
                 (0..b.primitives.len()).flat_map(move |j| {
                     (0..c.primitives.len()).flat_map(move |k| {
                         (0..d.primitives.len()).map(move |l| {
-                            let a_pos = a.position();
-                            let b_pos = b.position();
-                            let c_pos = c.position();
-                            let d_pos = d.position();
-
                             let comp_ab = GaussianPrimitive::product_center(
                                 &a.primitives[i],
                                 &a_pos,
