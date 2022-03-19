@@ -1,9 +1,8 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use log::info;
-use nalgebra::DMatrix;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::ops::Index;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

@@ -1,6 +1,6 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
-use nalgebra::{DMatrix, DVector, Vector, Vector3};
+use nalgebra::{DMatrix, DVector, Vector3};
 use std::ops::Index;
 
 pub struct MolecularOrbitals {
