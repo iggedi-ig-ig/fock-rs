@@ -1609,6 +1609,7 @@ dependencies = [
  "boys",
  "log",
  "nalgebra",
+ "rayon",
 ]
 
 [[package]]

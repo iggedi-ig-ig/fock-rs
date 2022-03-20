@@ -164,6 +164,7 @@ where
             let electronic_energy = 0.5 * (&density * (2.0 * &core_hamiltonian + &guess)).trace();
             if density_rms < epsilon || iter == max_iters {
                 let hf_energy = electronic_energy + nuclear_repulsion;
+                let energies = orbital_energies.into_iter().collect::<Vec<_>>();
                 let pad = (0..35).map(|_| '-').collect::<String>();
 
                 info!("+ {pad} SCF-Routine Finished {pad} +",);
@@ -171,7 +172,7 @@ where
                 info!("Electronic Energy: {electronic_energy:0.3}");
                 info!("Nuclear Repulsion Energy: {nuclear_repulsion:0.3}");
                 info!("Hartree-Fock Energy: {hf_energy:0.3}",);
-                info!("Orbital Energies: {:0.5}", orbital_energies.transpose());
+                info!("Orbital Energies: {energies:0.3?}");
                 info!("+ {pad} SCF-Routine Finished {pad} +",);
 
                 return Some(HartreeFockResult {
@@ -188,7 +189,7 @@ where
             } else if !density_rms.is_normal() {
                 return None;
             } else {
-                info!(
+                debug!(
                     "Iteration {iter}: density rms: {density_rms:0.5e}, energy: {:0.5}",
                     electronic_energy + nuclear_repulsion
                 );

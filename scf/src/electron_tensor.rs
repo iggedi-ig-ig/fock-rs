@@ -1,6 +1,6 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
-use log::info;
+use log::{debug, info};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -69,7 +69,7 @@ impl ElectronTensor {
                 })
             });
             let amount = data.lock().unwrap().len();
-            info!(
+            debug!(
                 "{amount} integrals computed, {:.1}% done",
                 (amount as f32 / n_integrals as f32).min(1.0) * 100.0
             );
