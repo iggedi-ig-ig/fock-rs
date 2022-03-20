@@ -1,11 +1,10 @@
 use nalgebra::Vector3;
-use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, Debug)]
 pub struct GaussianPrimitive {
-    angular: [i32; 3],
-    exponent: f64,
-    coefficient: f64,
+    pub angular: [i32; 3],
+    pub exponent: f64,
+    pub coefficient: f64,
 }
 
 impl GaussianPrimitive {
@@ -41,6 +40,7 @@ impl GaussianPrimitive {
         Self::new([0; 3], exponent, coefficient)
     }
 
+    #[inline(always)]
     pub fn product_center(
         a: &Self,
         a_pos: &Vector3<f64>,
@@ -59,24 +59,4 @@ impl GaussianPrimitive {
     pub fn coefficient(&self) -> f64 {
         self.coefficient
     }
-}
-
-impl Display for GaussianPrimitive {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:0.4}*", self.coefficient)?;
-        for (i, angular) in self.angular.into_iter().enumerate() {
-            if angular > 1 {
-                write!(f, "{}^{}*", ['x', 'y', 'z'][i], angular)?;
-            } else if angular > 0 {
-                write!(f, "{}*", ['x', 'y', 'z'][i])?;
-            }
-        }
-        write!(f, "exp({:0.4}*r^2)", -self.exponent)
-    }
-}
-
-#[test]
-pub fn test_display() {
-    let primitive = GaussianPrimitive::new([2, 1, 0], 0.1266712, 1.0);
-    println!("{}", primitive);
 }
