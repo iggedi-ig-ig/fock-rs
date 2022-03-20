@@ -1,6 +1,6 @@
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
-use log::{debug, info};
+use log::debug;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::hash::Hash;
