@@ -2,15 +2,21 @@ use crate::primitives::GaussianPrimitive;
 use crate::utils::{coulomb_auxiliary, hermite_expansion};
 use crate::{BasisFunction, PointCharge};
 use nalgebra::Vector3;
+use smallvec::SmallVec;
 
 #[derive(Clone, Debug)]
 pub struct ContractedGaussian {
     position: Vector3<f64>,
-    primitives: Vec<GaussianPrimitive>,
+    primitives: SmallVec<[GaussianPrimitive; Self::SMALL_VEC_SIZE]>,
 }
 
 impl ContractedGaussian {
-    pub fn new(position: Vector3<f64>, primitives: Vec<GaussianPrimitive>) -> Self {
+    pub const SMALL_VEC_SIZE: usize = 6;
+
+    pub fn new(
+        position: Vector3<f64>,
+        primitives: SmallVec<[GaussianPrimitive; Self::SMALL_VEC_SIZE]>,
+    ) -> Self {
         ContractedGaussian {
             position,
             primitives,
@@ -40,12 +46,9 @@ impl GaussianPrimitive {
         let [l1, m1, n1] = a.angular();
         let [l2, m2, n2] = b.angular();
 
-        let s1 = hermite_expansion(l1, l2, 0, diff.x, a.exponent(), b.exponent());
-        let s2 = hermite_expansion(m1, m2, 0, diff.y, a.exponent(), b.exponent());
-        let s3 = hermite_expansion(n1, n2, 0, diff.z, a.exponent(), b.exponent());
-
-        s1 * s2
-            * s3
+        hermite_expansion(l1, l2, 0, diff.x, a.exponent(), b.exponent())
+            * hermite_expansion(m1, m2, 0, diff.y, a.exponent(), b.exponent())
+            * hermite_expansion(n1, n2, 0, diff.z, a.exponent(), b.exponent())
             * (std::f64::consts::PI / (a.exponent() + b.exponent()))
                 .powi(3)
                 .sqrt()
