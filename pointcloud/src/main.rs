@@ -1,12 +1,13 @@
 use crate::molecules::*;
 use kiss3d::event::{Action, Key, WindowEvent};
-use kiss3d::text::Font;
 use kiss3d::window::Window;
-use log::LevelFilter;
-use nalgebra::{Point2, Point3, Translation3, Vector3};
+use log::{info, LevelFilter};
+use nalgebra::{Point3, Translation3, Vector3};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 mod molecules;
 
@@ -18,16 +19,16 @@ struct DataPoint {
 }
 
 const POINTS_PER_N: usize = 2_500_000;
-const POINTS_PER_ITER: usize = 50_000;
+const POINTS_PER_ITER: usize = 125_000;
 
 fn main() {
     env_logger::builder()
         .filter_level(LevelFilter::Debug)
         .init();
 
-    let basis_set = &basis_set::basis_sets::BASIS_STO_3G;
-    let molecule = BENZENE.build(basis_set);
-    if let Some(result) = molecule.try_scf(1000, 1e-6, 0) {
+    let basis_set = &basis_set::basis_sets::BASIS_STO_6G;
+    let molecule = ETHENE.build(basis_set);
+    if let Some(result) = molecule.try_scf(100, 1e-6, 0) {
         let n_basis = result.n_basis;
 
         let mut rng = XorShiftRng::from_entropy();
@@ -40,8 +41,11 @@ fn main() {
             sphere.set_local_translation(Translation3::from(atom.position().map(|f| f as f32)))
         });
 
-        let mut data_points = (0..n_basis).map(|_| Vec::new()).collect::<Vec<_>>();
-        let mut n = 0;
+        let data_points = Arc::new(Mutex::new(
+            (0..n_basis).map(|_| Vec::new()).collect::<Vec<_>>(),
+        ));
+        let n = Arc::new(Mutex::new(0));
+
         let mut min_prob = 0.02;
         let (min, max): (Vector3<f64>, Vector3<f64>) =
             molecule
@@ -58,39 +62,33 @@ fn main() {
                             ))
                         });
                     (
-                        Vector3::new(
-                            min.x.min(curr.position().x - max_r),
-                            min.y.min(curr.position().y - max_r),
-                            min.z.min(curr.position().z - max_r),
-                        ),
-                        Vector3::new(
-                            max.x.max(curr.position().x + max_r),
-                            max.y.max(curr.position().y + max_r),
-                            max.z.max(curr.position().z + max_r),
-                        ),
+                        min.zip_map(&curr.position(), |a, b| a.min(b - max_r)),
+                        max.zip_map(&curr.position(), |a, b| a.max(b + max_r)),
                     )
                 });
-        while window.render() {
-            window.set_title(&*format!(
-                "Energy Level: {}/{} (E: {:+0.5} Hartrees) | total energy: {:+0.5} Hartrees",
-                n,
-                n_basis - 1,
-                result.orbital_energies[n], // <-- Hartree to eV conversion factor,
-                result.total_energy
-            ));
-            let curr_n = if data_points[n].len() < POINTS_PER_N {
-                Some(n)
-            } else {
-                (0..n_basis).find(|n| data_points[*n].len() < POINTS_PER_N)
-            };
-            if let Some(n) = curr_n {
-                if data_points[n].len() < POINTS_PER_N {
+
+        thread::spawn({
+            let data_points = data_points.clone();
+            let n = n.clone();
+
+            move || {
+                while let Some(n) = {
+                    let lock = data_points.lock().unwrap();
+
+                    let curr_n = n.lock().unwrap();
+                    if lock[(*curr_n)].len() < POINTS_PER_N {
+                        Some(*curr_n)
+                    } else {
+                        (0..n_basis).find(|n| lock[*n].len() < POINTS_PER_N)
+                    }
+                } {
                     for _ in 0..POINTS_PER_ITER {
                         let point = min + rng.gen::<Vector3<f64>>().component_mul(&(max - min));
                         let wave = result.orbitals[n].evaluate(&point);
                         let prob = wave.powi(2);
 
-                        data_points[n].push(DataPoint {
+                        let mut lock = data_points.lock().unwrap();
+                        lock[n].push(DataPoint {
                             position: Point3::from(point.map(|f| f as f32)),
                             color: if wave > 0.0 {
                                 Point3::new(1.0, 0.2, 0.2)
@@ -100,34 +98,52 @@ fn main() {
                             prob: prob as f32,
                         });
                     }
-
-                    window.draw_text(
-                        &*format!(
-                            "Currently filling energy level {}\n {} points",
-                            n,
-                            data_points[n].len()
-                        ),
-                        &Point2::new(10.0, 5.0),
-                        window.width() as f32 / 25.0,
-                        &Font::default(),
-                        &Point3::new(1.0, 1.0, 1.0),
-                    );
                 }
+
+                info!("All energy levels have been filled!");
             }
+        });
+
+        while window.render() {
+            let current_energy_level = *n.lock().unwrap();
+            window.set_title(&*format!(
+                "Energy Level: {}/{} (E: {:+0.5} Hartrees) | total energy: {:+0.5} Hartrees",
+                current_energy_level,
+                n_basis - 1,
+                result.orbital_energies[current_energy_level], // <-- Hartree to eV conversion factor,
+                result.total_energy
+            ));
 
             window.events().iter().for_each(|event| {
                 if let WindowEvent::Key(key, Action::Press, _) = event.value {
                     match key {
                         Key::Up => min_prob *= 1.25,
                         Key::Down => min_prob /= 1.25,
-                        Key::Left => n = if n > 0 { n - 1 } else { n_basis - 1 },
-                        Key::Right => n = if n < n_basis - 1 { n + 1 } else { 0 },
+                        Key::Left => {
+                            *n.lock().unwrap() = {
+                                if current_energy_level > 0 {
+                                    current_energy_level - 1
+                                } else {
+                                    n_basis - 1
+                                }
+                            }
+                        }
+                        Key::Right => {
+                            *n.lock().unwrap() = {
+                                if current_energy_level < n_basis - 1 {
+                                    current_energy_level + 1
+                                } else {
+                                    0
+                                }
+                            };
+                        }
                         _ => {}
                     }
                 }
             });
 
-            data_points[n]
+            let lock = data_points.lock().unwrap();
+            lock[current_energy_level]
                 .iter()
                 .filter(|point| point.prob > min_prob)
                 .for_each(|point| window.draw_point(&point.position, &point.color));
