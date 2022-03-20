@@ -2,6 +2,7 @@ use basis::contracted_gaussian::ContractedGaussian;
 use basis::BasisFunction;
 use log::debug;
 use rayon::prelude::*;
+use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
@@ -54,8 +55,11 @@ impl ElectronTensor {
                     (0..n_basis).for_each(|x| {
                         let index = IntegralIndex::new((x, y, z, w));
 
-                        let lock = data.lock().unwrap();
-                        if !lock.contains_key(&index) {
+                        let mut lock = data.lock().unwrap();
+                        if let Vacant(e) = lock.entry(index) {
+                            // insert something into hashmap to prevent double computation
+                            e.insert(f64::NAN);
+
                             // drop lock so other threads can continue working
                             drop(lock);
 
