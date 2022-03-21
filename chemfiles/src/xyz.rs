@@ -22,14 +22,13 @@ pub fn read_xyz_file<P: AsRef<Path>>(
 
     let mut atoms = Vec::new();
     for cap in pattern.captures_iter(&content) {
-        println!("{cap:?}");
-
         let symbol = cap[1].to_uppercase();
-        let x = cap[2].parse::<f64>()?;
-        let y = cap[3].parse::<f64>()?;
-        let z = cap[4].parse::<f64>()?;
 
-        println!("{symbol} {x} {y} {z}");
+        // multiply by 1.89 to convert to correct unit
+        let x = cap[2].parse::<f64>()? * 1.89;
+        let y = cap[3].parse::<f64>()? * 1.89;
+        let z = cap[4].parse::<f64>()? * 1.89;
+
         atoms.push(basis_set.get(Vector3::new(x, y, z), AtomType::from_symbol(&symbol)));
     }
 

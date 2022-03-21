@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let molecule = chemfiles::xyz::read_xyz_file(
-        "../molecules/naphthalene.xyz",
+        "pointcloud/molecules/ethanol.xyz",
         &basis_set::basis_sets::BASIS_STO_3G,
     )?;
     if let Some(result) = molecule.try_scf(100, 1e-6, 0) {
