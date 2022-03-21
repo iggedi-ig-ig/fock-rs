@@ -1,4 +1,3 @@
-use crate::molecules::*;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::window::Window;
 use log::{info, LevelFilter};
@@ -8,8 +7,6 @@ use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
 use std::sync::{Arc, Mutex};
 use std::thread;
-
-mod molecules;
 
 #[derive(Copy, Clone)]
 struct DataPoint {
@@ -21,13 +18,15 @@ struct DataPoint {
 const POINTS_PER_N: usize = 2_500_000;
 const POINTS_PER_ITER: usize = 125_000;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::builder()
         .filter_level(LevelFilter::Debug)
         .init();
 
-    let basis_set = &basis_set::basis_sets::BASIS_STO_6G;
-    let molecule = ETHENE.build(basis_set);
+    let molecule = chemfiles::xyz::read_xyz_file(
+        "../molecules/naphthalene.xyz",
+        &basis_set::basis_sets::BASIS_STO_3G,
+    )?;
     if let Some(result) = molecule.try_scf(100, 1e-6, 0) {
         let n_basis = result.n_basis;
 
@@ -148,6 +147,7 @@ fn main() {
                 .filter(|point| point.prob > min_prob)
                 .for_each(|point| window.draw_point(&point.position, &point.color));
         }
+        Ok(())
     } else {
         panic!("SCF didn't converge!");
     }

@@ -9,8 +9,9 @@ edition = "2021"
 kiss3d = "0.34.0"
 rand = "0.8.4"
 rand_xorshift = "0.3.0"
-nalgebra = {version = "0.30.1", features = ["rand"]}
-basis_set = { path = "../basis_set"}
+nalgebra = { version = "0.30.1", features = ["rand"] }
+basis_set = { path = "../basis_set" }
 scf = { path = "../scf" }
 env_logger = "0.9.0"
 log = "0.4.14"
+chemfiles = { path = "../chemfiles" }

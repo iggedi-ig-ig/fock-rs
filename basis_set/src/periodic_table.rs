@@ -1,3 +1,4 @@
+use crate::AtomType::{Carbon, Helium, Hydrogen, Nitrogen, Oxygen};
 use serde::Deserialize;
 use std::mem::transmute;
 
@@ -275,6 +276,22 @@ impl AtomType {
             AtomType::Nitrogen => [0.1, 0.1, 0.9],
             AtomType::Fluorine => [188.0 / 255.0, 166.0 / 255.0, 65.0 / 255.0],
             _ => [0.5; 3],
+        }
+    }
+
+    pub fn from_symbol(symbol: &str) -> Self {
+        if symbol == "H" {
+            Hydrogen
+        } else if symbol == "He" {
+            Helium
+        } else if symbol == "C" {
+            Carbon
+        } else if symbol == "N" {
+            Nitrogen
+        } else if symbol == "O" {
+            Oxygen
+        } else {
+            todo!("this is bad")
         }
     }
 }
