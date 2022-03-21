@@ -123,33 +123,40 @@ impl GaussianPrimitive {
         comp_dist_sq: f64,
     ) -> f64 {
         let [l1, m1, n1]: [i32; 3] = a.angular();
-        let [l2, m2, n2]: [i32; 3] = b.angular();
-        let [l3, m3, n3]: [i32; 3] = c.angular();
-        let [l4, m4, n4]: [i32; 3] = d.angular();
-
         let a = a.exponent();
+
+        let [l2, m2, n2]: [i32; 3] = b.angular();
         let b = b.exponent();
+
+        let [l3, m3, n3]: [i32; 3] = c.angular();
         let c = c.exponent();
+
+        let [l4, m4, n4]: [i32; 3] = d.angular();
         let d = d.exponent();
 
         let p = a + b;
         let q = c + d;
 
+        // TODO: make this more readable
         let alpha = p * q / (p + q);
         2.0 * std::f64::consts::PI.powi(5).sqrt()
             * (p * q * (p + q).sqrt()).recip()
             * (0..=l1 + l2)
                 .flat_map(move |t1| {
+                    let e1 = hermite_expansion(l1, l2, t1, diff_ab.x, a, b);
                     (0..=m1 + m2).flat_map(move |u1| {
+                        let e2 = hermite_expansion(m1, m2, u1, diff_ab.y, a, b);
                         (0..=n1 + n2).flat_map(move |v1| {
+                            let e3 = hermite_expansion(n1, n2, v1, diff_ab.z, a, b);
                             (0..=l3 + l4).flat_map(move |t2| {
+                                let e4 = hermite_expansion(l3, l4, t2, diff_cd.x, c, d);
                                 (0..=m3 + m4).flat_map(move |u2| {
+                                    let e5 = hermite_expansion(m3, m4, u2, diff_cd.y, c, d);
                                     (0..=n3 + n4).map(move |v2| {
-                                        hermite_expansion(l1, l2, t1, diff_ab.x, a, b)
-                                            * hermite_expansion(m1, m2, u1, diff_ab.y, a, b)
-                                            * hermite_expansion(n1, n2, v1, diff_ab.z, a, b)
-                                            * hermite_expansion(l3, l4, t2, diff_cd.x, c, d)
-                                            * hermite_expansion(m3, m4, u2, diff_cd.y, c, d)
+                                        e1 * e2
+                                            * e3
+                                            * e4
+                                            * e5
                                             * hermite_expansion(n3, n4, v2, diff_cd.z, c, d)
                                             * coulomb_auxiliary(
                                                 t1 + t2,

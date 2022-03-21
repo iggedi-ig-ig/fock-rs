@@ -81,6 +81,7 @@ impl BasisSet {
             .get(&atom_type)
             .map(|config| {
                 let mut basis_functions = Vec::new();
+                // TODO: keep electron shell structure for more efficient integral evaluation
                 for shell in config.electron_shells.iter() {
                     for (idx, angular) in shell.angular_momentum.iter().enumerate() {
                         let angulars = (0..=*angular)
@@ -115,14 +116,4 @@ impl BasisSet {
             })
             .expect("Failed to get atom from basis set")
     }
-}
-
-#[test]
-pub fn test_basis() {
-    use crate::basis_sets::BASIS_6_31G;
-
-    println!(
-        "{}",
-        BASIS_6_31G.get(Vector3::zeros(), AtomType::Phosphorous)
-    )
 }
