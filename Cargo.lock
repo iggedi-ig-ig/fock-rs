@@ -79,7 +79,9 @@ name = "basis"
 version = "0.1.0"
 dependencies = [
  "boys",
+ "log",
  "nalgebra",
+ "rayon",
  "serde",
  "serde_json",
  "smallvec",
@@ -1610,7 +1612,6 @@ dependencies = [
  "boys",
  "log",
  "nalgebra",
- "rayon",
 ]
 
 [[package]]

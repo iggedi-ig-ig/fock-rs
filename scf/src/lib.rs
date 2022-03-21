@@ -1,10 +1,9 @@
-pub mod electron_tensor;
 pub mod molecular_orbitals;
 pub mod utils;
 
-use crate::electron_tensor::ElectronTensor;
 use crate::molecular_orbitals::MolecularOrbitals;
 use basis::contracted_gaussian::ContractedGaussian;
+use basis::electron_tensor::ElectronTensor;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
 use log::{debug, info, warn};

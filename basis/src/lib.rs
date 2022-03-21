@@ -1,4 +1,5 @@
 pub mod contracted_gaussian;
+pub mod electron_tensor;
 pub mod primitives;
 pub mod utils;
 

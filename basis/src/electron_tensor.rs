@@ -1,5 +1,5 @@
-use basis::contracted_gaussian::ContractedGaussian;
-use basis::BasisFunction;
+use crate::contracted_gaussian::ContractedGaussian;
+use crate::BasisFunction;
 use log::debug;
 use rayon::prelude::*;
 use std::collections::hash_map::Entry::Vacant;
@@ -49,7 +49,7 @@ impl ElectronTensor {
         let n_integrals = (n_basis.pow(4) + 8 + 1) / 8;
         let data = Arc::new(Mutex::new(HashMap::new()));
 
-        (0..n_basis).into_par_iter().for_each(|w| {
+        (0..n_basis).par_bridge().for_each(|w| {
             (w..n_basis).for_each(|z| {
                 (0..n_basis).for_each(|y| {
                     (0..n_basis).for_each(|x| {
