@@ -7,6 +7,7 @@ use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use anyhow::Result;
 
 #[derive(Copy, Clone)]
 struct DataPoint {
@@ -18,13 +19,13 @@ struct DataPoint {
 const POINTS_PER_N: usize = 2_500_000;
 const POINTS_PER_ITER: usize = 125_000;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     env_logger::builder()
         .filter_level(LevelFilter::Debug)
         .init();
 
     let molecule = chemfiles::xyz::read_xyz_file(
-        "pointcloud/molecules/ethanol.xyz",
+        "pointcloud/molecules/benzene.xyz",
         &basis_set::basis_sets::BASIS_STO_3G,
     )?;
     if let Some(result) = molecule.try_scf(100, 1e-6, 0) {

@@ -6,13 +6,14 @@ use regex::Regex;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use anyhow::Result;
 
 /// XYZ File format
 
 pub fn read_xyz_file<P: AsRef<Path>>(
     path: P,
     basis_set: &BasisSet,
-) -> Result<Vec<Atom>, Box<dyn std::error::Error>> {
+) -> Result<Vec<Atom>> {
     let pattern = Regex::new(r"\s*(\w+)\s+([+\-0-9.]+)\s+([+\-0-9.]+)\s+([0-9.+\-]+).*\b")?;
 
     let mut file = File::open(path)?;

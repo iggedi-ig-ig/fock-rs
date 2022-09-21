@@ -32,57 +32,77 @@ impl ContractedGaussian {
 
 impl GaussianPrimitive {
     /// helper function to add angular momentum
-    fn _add_ijk(primitive: &GaussianPrimitive, [i, j, k]: [i32; 3]) -> GaussianPrimitive {
-        let [a, b, c] = primitive.angular();
-        GaussianPrimitive::new_unnormalized(
-            [a + i, b + j, c + k],
-            primitive.exponent(),
-            primitive.coefficient(),
-        )
+    fn _add_ijk(
+        _primitive @ &GaussianPrimitive {
+            angular: [a, b, c],
+            exponent,
+            coefficient,
+        }: &GaussianPrimitive,
+        [i, j, k]: [i32; 3],
+    ) -> GaussianPrimitive {
+        GaussianPrimitive::new_unnormalized([a + i, b + j, c + k], exponent, coefficient)
     }
 
     /// overlap integral between two primitive gaussians
-    fn _overlap(a: &GaussianPrimitive, b: &GaussianPrimitive, diff: &Vector3<f64>) -> f64 {
-        let [l1, m1, n1] = a.angular();
-        let [l2, m2, n2] = b.angular();
-
-        hermite_expansion(l1, l2, 0, diff.x, a.exponent(), b.exponent())
-            * hermite_expansion(m1, m2, 0, diff.y, a.exponent(), b.exponent())
-            * hermite_expansion(n1, n2, 0, diff.z, a.exponent(), b.exponent())
-            * (std::f64::consts::PI / (a.exponent() + b.exponent()))
-                .powi(3)
-                .sqrt()
+    fn _overlap(
+        _a @ &GaussianPrimitive {
+            angular: [l1, m1, n1],
+            exponent: a_exp,
+            ..
+        }: &GaussianPrimitive,
+        _b @ &GaussianPrimitive {
+            angular: [l2, m2, n2],
+            exponent: b_exp,
+            ..
+        }: &GaussianPrimitive,
+        diff: &Vector3<f64>,
+    ) -> f64 {
+        hermite_expansion([l1, l2, 0], diff.x, a_exp, b_exp)
+            * hermite_expansion([m1, m2, 0], diff.y, a_exp, b_exp)
+            * hermite_expansion([n1, n2, 0], diff.z, a_exp, b_exp)
+            * (std::f64::consts::PI / (a_exp + b_exp)).powi(3).sqrt()
     }
 
     /// kinetic energy integral between two primitive gaussians
-    fn _kinetic(a: &GaussianPrimitive, b: &GaussianPrimitive, diff: &Vector3<f64>) -> f64 {
-        let [l2, m2, n2] = b.angular();
+    fn _kinetic(
+        a: &GaussianPrimitive,
+        b @ &GaussianPrimitive {
+            angular: [l2, m2, n2],
+            exponent: b_exp,
+            ..
+        }: &GaussianPrimitive,
+        diff: &Vector3<f64>,
+    ) -> f64 {
+        let overlap_step = |i, j, k| Self::_overlap(a, &Self::_add_ijk(b, [i, j, k]), diff);
 
-        let term0 = b.exponent() * (2 * (l2 + m2 + n2) + 3) as f64 * Self::_overlap(a, b, diff);
+        let term0 = b_exp * (2 * (l2 + m2 + n2) + 3) as f64 * Self::_overlap(a, b, diff);
         let term1 = -2.0
             * b.exponent().powi(2)
-            * (Self::_overlap(a, &Self::_add_ijk(b, [2, 0, 0]), diff)
-                + Self::_overlap(a, &Self::_add_ijk(b, [0, 2, 0]), diff)
-                + Self::_overlap(a, &Self::_add_ijk(b, [0, 0, 2]), diff));
+            * (overlap_step(2, 0, 0) + overlap_step(0, 2, 0) + overlap_step(0, 0, 2));
         let term2 = -0.5
-            * ((l2 * (l2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [-2, 0, 0]), diff)
-                + (m2 * (m2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, -2, 0]), diff)
-                + (n2 * (n2 - 1)) as f64 * Self::_overlap(a, &Self::_add_ijk(b, [0, 0, -2]), diff));
+            * ((l2 * (l2 - 1)) as f64 * overlap_step(-2, 0, 0)
+                + (m2 * (m2 - 1)) as f64 * overlap_step(0, -2, 0)
+                + (n2 * (n2 - 1)) as f64 * overlap_step(0, 0, -2));
         term0 + term1 + term2
     }
 
     /// nuclear attraction integral between two primitive gaussians
     fn _nuclear_attraction(
-        a: &GaussianPrimitive,
-        b: &GaussianPrimitive,
+        _a @ &GaussianPrimitive {
+            angular: [l1, m1, n1],
+            exponent: a,
+            ..
+        }: &GaussianPrimitive,
+        _b @ &GaussianPrimitive {
+            angular: [l2, m2, n2],
+            exponent: b,
+            ..
+        }: &GaussianPrimitive,
         diff: &Vector3<f64>,
         prod_center: &Vector3<f64>,
         point_charge: &PointCharge,
     ) -> f64 {
-        let [l1, m1, n1] = a.angular();
-        let [l2, m2, n2] = b.angular();
-
-        let p = a.exponent() + b.exponent();
+        let p = a + b;
 
         let diff_comp_nucleus = point_charge.position - prod_center;
         let dist_sq_comp_nucleus = diff_comp_nucleus.norm_squared();
@@ -90,11 +110,13 @@ impl GaussianPrimitive {
         -point_charge.charge * std::f64::consts::TAU / p
             * (0..=l1 + l2)
                 .flat_map(|t| {
+                    let e1 = hermite_expansion([l1, l2, t], diff.x, a, b);
                     (0..=m1 + m2).flat_map(move |u| {
+                        let e2 = hermite_expansion([m1, m2, u], diff.y, a, b);
                         (0..=n1 + n2).map(move |v| {
-                            hermite_expansion(l1, l2, t, diff.x, a.exponent(), b.exponent())
-                                * hermite_expansion(m1, m2, u, diff.y, a.exponent(), b.exponent())
-                                * hermite_expansion(n1, n2, v, diff.z, a.exponent(), b.exponent())
+                            let e3 = hermite_expansion([n1, n2, v], diff.z, a, b);
+                            e1 * e2
+                                * e3
                                 * coulomb_auxiliary(
                                     t,
                                     u,
@@ -110,30 +132,30 @@ impl GaussianPrimitive {
                 .sum::<f64>()
     }
 
-    #[allow(clippy::too_many_arguments, clippy::many_single_char_names)]
     /// four-electron integrals between four primitive gaussians
     fn _electron_repulsion(
-        a: &GaussianPrimitive,
-        b: &GaussianPrimitive,
-        c: &GaussianPrimitive,
-        d: &GaussianPrimitive,
+        _primitives @ &[GaussianPrimitive {
+            angular: [l1, m1, n1],
+            exponent: a,
+            ..
+        }, GaussianPrimitive {
+            angular: [l2, m2, n2],
+            exponent: b,
+            ..
+        }, GaussianPrimitive {
+            angular: [l3, m3, n3],
+            exponent: c,
+            ..
+        }, GaussianPrimitive {
+            angular: [l4, m4, n4],
+            exponent: d,
+            ..
+        }]: &[GaussianPrimitive; 4],
         diff_ab: &Vector3<f64>,
         diff_cd: &Vector3<f64>,
         comp_diff: &Vector3<f64>,
         comp_dist_sq: f64,
     ) -> f64 {
-        let [l1, m1, n1]: [i32; 3] = a.angular();
-        let a = a.exponent();
-
-        let [l2, m2, n2]: [i32; 3] = b.angular();
-        let b = b.exponent();
-
-        let [l3, m3, n3]: [i32; 3] = c.angular();
-        let c = c.exponent();
-
-        let [l4, m4, n4]: [i32; 3] = d.angular();
-        let d = d.exponent();
-
         let p = a + b;
         let q = c + d;
 
@@ -143,21 +165,22 @@ impl GaussianPrimitive {
             * (p * q * (p + q).sqrt()).recip()
             * (0..=l1 + l2)
                 .flat_map(move |t1| {
-                    let e1 = hermite_expansion(l1, l2, t1, diff_ab.x, a, b);
+                    let e1 = hermite_expansion([l1, l2, t1], diff_ab.x, a, b);
                     (0..=m1 + m2).flat_map(move |u1| {
-                        let e2 = hermite_expansion(m1, m2, u1, diff_ab.y, a, b);
+                        let e2 = hermite_expansion([m1, m2, u1], diff_ab.y, a, b);
                         (0..=n1 + n2).flat_map(move |v1| {
-                            let e3 = hermite_expansion(n1, n2, v1, diff_ab.z, a, b);
+                            let e3 = hermite_expansion([n1, n2, v1], diff_ab.z, a, b);
                             (0..=l3 + l4).flat_map(move |t2| {
-                                let e4 = hermite_expansion(l3, l4, t2, diff_cd.x, c, d);
+                                let e4 = hermite_expansion([l3, l4, t2], diff_cd.x, c, d);
                                 (0..=m3 + m4).flat_map(move |u2| {
-                                    let e5 = hermite_expansion(m3, m4, u2, diff_cd.y, c, d);
+                                    let e5 = hermite_expansion([m3, m4, u2], diff_cd.y, c, d);
                                     (0..=n3 + n4).map(move |v2| {
+                                        let e6 = hermite_expansion([n3, n4, v2], diff_cd.z, c, d);
                                         e1 * e2
                                             * e3
                                             * e4
                                             * e5
-                                            * hermite_expansion(n3, n4, v2, diff_cd.z, c, d)
+                                            * e6
                                             * coulomb_auxiliary(
                                                 t1 + t2,
                                                 u1 + u2,
@@ -243,17 +266,20 @@ impl BasisFunction for ContractedGaussian {
         let diff_ab = b_pos - a_pos;
         let diff_cd = d_pos - c_pos;
 
-        (0..a.primitives.len())
+        let itr = |pr: &Self| (0..pr.primitives.len());
+
+        itr(a)
             .flat_map(move |i| {
-                (0..b.primitives.len()).flat_map(move |j| {
-                    (0..c.primitives.len()).flat_map(move |k| {
-                        (0..d.primitives.len()).map(move |l| {
-                            let comp_ab = GaussianPrimitive::product_center(
-                                &a.primitives[i],
-                                &a_pos,
-                                &b.primitives[j],
-                                &b_pos,
-                            );
+                itr(b).flat_map(move |j| {
+                    let comp_ab = GaussianPrimitive::product_center(
+                        &a.primitives[i],
+                        &a_pos,
+                        &b.primitives[j],
+                        &b_pos,
+                    );
+
+                    itr(c).flat_map(move |k| {
+                        itr(d).map(move |l| {
                             let comp_cd = GaussianPrimitive::product_center(
                                 &c.primitives[k],
                                 &c_pos,
@@ -269,10 +295,12 @@ impl BasisFunction for ContractedGaussian {
                                 * c.primitives[k].coefficient()
                                 * d.primitives[l].coefficient()
                                 * GaussianPrimitive::_electron_repulsion(
-                                    &a.primitives[i],
-                                    &b.primitives[j],
-                                    &c.primitives[k],
-                                    &d.primitives[l],
+                                    &[
+                                        a.primitives[i],
+                                        b.primitives[j],
+                                        c.primitives[k],
+                                        d.primitives[l],
+                                    ],
                                     &diff_ab,
                                     &diff_cd,
                                     &comp_diff,

@@ -2,9 +2,9 @@ use nalgebra::Vector3;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GaussianPrimitive {
-    pub angular: [i32; 3],
-    pub exponent: f64,
-    pub coefficient: f64,
+    pub(crate) angular: [i32; 3],
+    pub(crate) exponent: f64,
+    pub(crate) coefficient: f64,
 }
 
 impl GaussianPrimitive {

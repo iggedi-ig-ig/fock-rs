@@ -3,7 +3,7 @@ use nalgebra::Vector3;
 #[allow(clippy::many_single_char_names)]
 // TODO: make this iterative
 // see https://joshuagoings.com/2017/04/28/integrals/
-pub fn hermite_expansion(i: i32, j: i32, t: i32, dist: f64, a: f64, b: f64) -> f64 {
+pub fn hermite_expansion([i, j, t]: [i32; 3], dist: f64, a: f64, b: f64) -> f64 {
     let p = a + b;
     let q = a * b / p;
 
@@ -12,13 +12,13 @@ pub fn hermite_expansion(i: i32, j: i32, t: i32, dist: f64, a: f64, b: f64) -> f
     } else if i == j && j == t && t == 0 {
         f64::exp(-q * dist.powi(2))
     } else if j == 0 {
-        (2.0 * p).recip() * hermite_expansion(i - 1, j, t - 1, dist, a, b)
-            - (q * dist / a) * hermite_expansion(i - 1, j, t, dist, a, b)
-            + (t + 1) as f64 * hermite_expansion(i - 1, j, t + 1, dist, a, b)
+        (2.0 * p).recip() * hermite_expansion([i - 1, j, t - 1], dist, a, b)
+            - (q * dist / a) * hermite_expansion([i - 1, j, t], dist, a, b)
+            + (t + 1) as f64 * hermite_expansion([i - 1, j, t + 1], dist, a, b)
     } else {
-        (2.0 * p).recip() * hermite_expansion(i, j - 1, t - 1, dist, a, b)
-            + (q * dist / b) * hermite_expansion(i, j - 1, t, dist, a, b)
-            + (t + 1) as f64 * hermite_expansion(i, j - 1, t + 1, dist, a, b)
+        (2.0 * p).recip() * hermite_expansion([i, j - 1, t - 1], dist, a, b)
+            + (q * dist / b) * hermite_expansion([i, j - 1, t], dist, a, b)
+            + (t + 1) as f64 * hermite_expansion([i, j - 1, t + 1], dist, a, b)
     }
 }
 
