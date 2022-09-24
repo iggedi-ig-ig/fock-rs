@@ -42,12 +42,16 @@ impl GaussianPrimitive {
 
     #[inline(always)]
     pub fn product_center(
-        a: &Self,
+        _a @ &Self {
+            exponent: a_exp, ..
+        }: &Self,
         a_pos: &Vector3<f64>,
-        b: &Self,
+        _b @ &Self {
+            exponent: b_exp, ..
+        }: &Self,
         b_pos: &Vector3<f64>,
     ) -> Vector3<f64> {
-        (a.exponent * a_pos + b.exponent * b_pos) / (a.exponent + b.exponent)
+        (a_exp * a_pos + b_exp * b_pos) / (a_exp + b_exp)
     }
 
     pub fn angular(&self) -> [i32; 3] {

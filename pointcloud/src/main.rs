@@ -1,3 +1,4 @@
+use anyhow::Result;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::window::Window;
 use log::{info, LevelFilter};
@@ -7,7 +8,6 @@ use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use anyhow::Result;
 
 #[derive(Copy, Clone)]
 struct DataPoint {
@@ -25,7 +25,7 @@ fn main() -> Result<()> {
         .init();
 
     let molecule = chemfiles::xyz::read_xyz_file(
-        "pointcloud/molecules/benzene.xyz",
+        "chemfiles/molecules/benzene.xyz",
         &basis_set::basis_sets::BASIS_STO_3G,
     )?;
     if let Some(result) = molecule.try_scf(100, 1e-6, 0) {

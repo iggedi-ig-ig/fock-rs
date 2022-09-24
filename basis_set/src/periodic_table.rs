@@ -1,4 +1,4 @@
-use crate::AtomType::{Carbon, Helium, Hydrogen, Nitrogen, Oxygen};
+use crate::AtomType::*;
 use serde::Deserialize;
 use std::mem::transmute;
 
@@ -269,29 +269,27 @@ impl AtomType {
 
     pub fn color(&self) -> [f32; 3] {
         match *self {
-            AtomType::Hydrogen => [0.9; 3],
-            AtomType::Carbon => [0.1; 3],
-            AtomType::Oxygen => [0.9, 0.1, 0.1],
-            AtomType::Chlorine => [0.1, 0.9, 0.1],
-            AtomType::Nitrogen => [0.1, 0.1, 0.9],
-            AtomType::Fluorine => [188.0 / 255.0, 166.0 / 255.0, 65.0 / 255.0],
+            Hydrogen => [0.9; 3],
+            Carbon => [0.1; 3],
+            Oxygen => [0.9, 0.1, 0.1],
+            Chlorine => [0.1, 0.9, 0.1],
+            Nitrogen => [0.1, 0.1, 0.9],
+            Fluorine => [188.0 / 255.0, 166.0 / 255.0, 65.0 / 255.0],
+            Iron => [0.8; 3],
             _ => [0.5; 3],
         }
     }
 
     pub fn from_symbol(symbol: &str) -> Self {
-        if symbol == "H" {
-            Hydrogen
-        } else if symbol == "He" {
-            Helium
-        } else if symbol == "C" {
-            Carbon
-        } else if symbol == "N" {
-            Nitrogen
-        } else if symbol == "O" {
-            Oxygen
-        } else {
-            todo!("this is bad")
+        match symbol {
+            "H" => Hydrogen,
+            "He" => Helium,
+            "C" => Carbon,
+            "N" => Nitrogen,
+            "O" => Oxygen,
+            "F" => Fluorine,
+            "Fe" => Iron,
+            _ => panic!("not implemented yet"),
         }
     }
 }

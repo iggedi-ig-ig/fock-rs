@@ -5,7 +5,8 @@ members = [
     "scf",
     "basis_set",
     "pointcloud",
-    "chemfiles"
+    "chemfiles",
+    "volumetric"
 ]
 resolver = "2"
 
