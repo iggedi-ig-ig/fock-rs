@@ -3,6 +3,7 @@ use dolly::glam::{EulerRot, Vec3};
 use dolly::prelude::*;
 use log::{error, info, LevelFilter};
 use nalgebra::{Vector2, Vector3};
+use rayon::prelude::*;
 use scf::molecular_orbitals::MolecularOrbitals;
 use scf::{HartreeFockResult, SelfConsistentField};
 use std::cmp::Ordering;
@@ -42,8 +43,8 @@ struct PushConstants {
     vox_side: u32,
 }
 
-const VOX_COUNT_SIDE: usize = 100;
-const VOX_TEXTURE_SCALE: f64 = 15.0;
+const VOX_COUNT_SIDE: usize = 150;
+const VOX_TEXTURE_SCALE: f64 = 20.0;
 
 struct State {
     surface: Surface,
@@ -71,17 +72,16 @@ struct State {
 
 impl State {
     fn create_wave_texture_data(n: usize, orbitals: &MolecularOrbitals) -> Vec<f32> {
-        (0..VOX_COUNT_SIDE)
-            .flat_map(move |z| {
-                (0..VOX_COUNT_SIDE).flat_map(move |y| {
-                    (0..VOX_COUNT_SIDE).map(move |x| {
-                        orbitals[n].evaluate(
-                            &(Vector3::new(x, y, z)
-                                .map(|x| x as f64 / VOX_COUNT_SIDE as f64 - 0.5)
-                                * VOX_TEXTURE_SCALE),
-                        ) as f32
-                    })
-                })
+        (0..VOX_COUNT_SIDE.pow(3))
+            .into_par_iter()
+            .map(|i| {
+                let x = i / VOX_COUNT_SIDE.pow(2);
+                let y = (i / VOX_COUNT_SIDE) % VOX_COUNT_SIDE;
+                let z = i % VOX_COUNT_SIDE;
+                orbitals[n].evaluate(
+                    &(Vector3::new(x, y, z).map(|x| x as f64 / VOX_COUNT_SIDE as f64 - 0.5)
+                        * VOX_TEXTURE_SCALE),
+                ) as f32
             })
             .collect()
     }
@@ -118,7 +118,7 @@ impl State {
         let size = window.inner_size();
 
         let molecule = chemfiles::xyz::read_xyz_file(
-            "chemfiles/molecules/ethanol.xyz",
+            "chemfiles/molecules/benzene.xyz",
             &basis_set::basis_sets::BASIS_STO_3G,
         )
         .expect("xyz file is invalid");
