@@ -6,22 +6,26 @@ use nalgebra::{Vector2, Vector3};
 use rayon::prelude::*;
 use scf::molecular_orbitals::MolecularOrbitals;
 use scf::{HartreeFockResult, SelfConsistentField};
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem::size_of;
 use std::num::NonZeroU32;
+use std::path::Path;
 use std::time::Instant;
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
-    include_spirv, AddressMode, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
+    AddressMode, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
-    Color, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Device, DeviceDescriptor,
-    Extent3d, Features, FilterMode, FragmentState, ImageDataLayout, Instance, Limits, LoadOp,
-    Operations, PipelineLayoutDescriptor, PresentMode, PrimitiveState, PrimitiveTopology,
-    PushConstantRange, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, SamplerBorderColor,
-    SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, SurfaceError, Texture,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension, VertexState,
+    BufferBinding, BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FilterMode,
+    FragmentState, ImageDataLayout, Instance, Limits, LoadOp, Operations, PipelineLayoutDescriptor,
+    PresentMode, PrimitiveState, PrimitiveTopology, PushConstantRange, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, SamplerBindingType, SamplerBorderColor, SamplerDescriptor, ShaderModule,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface, SurfaceConfiguration,
+    SurfaceError, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
 };
 use winit::dpi::PhysicalSize;
 use winit::event::{
@@ -43,8 +47,15 @@ struct PushConstants {
     vox_side: u32,
 }
 
-const VOX_COUNT_SIDE: usize = 150;
-const VOX_TEXTURE_SCALE: f64 = 20.0;
+#[repr(C)]
+#[derive(Copy, Clone, Zeroable, Pod)]
+struct GpuAtom {
+    radius: f32,
+    color: [f32; 3],
+    pos: [f32; 3],
+}
+
+const VOX_COUNT_SIDE: usize = 200;
 
 struct State {
     surface: Surface,
@@ -70,17 +81,23 @@ struct State {
     energy_level: usize,
 }
 
+fn read_shader<P: AsRef<Path>>(device: &Device, path: P) -> ShaderModule {
+    device.create_shader_module(ShaderModuleDescriptor {
+        label: None,
+        source: ShaderSource::Wgsl(Cow::Owned(std::fs::read_to_string(path).unwrap())),
+    })
+}
+
 impl State {
     fn create_wave_texture_data(n: usize, orbitals: &MolecularOrbitals) -> Vec<f32> {
         (0..VOX_COUNT_SIDE.pow(3))
             .into_par_iter()
             .map(|i| {
-                let x = i / VOX_COUNT_SIDE.pow(2);
+                let x = i % VOX_COUNT_SIDE;
                 let y = (i / VOX_COUNT_SIDE) % VOX_COUNT_SIDE;
-                let z = i % VOX_COUNT_SIDE;
+                let z = i / VOX_COUNT_SIDE.pow(2);
                 orbitals[n].evaluate(
-                    &(Vector3::new(x, y, z).map(|x| x as f64 / VOX_COUNT_SIDE as f64 - 0.5)
-                        * VOX_TEXTURE_SCALE),
+                    &(Vector3::new(x, y, z).map(|x| x as f64 / VOX_COUNT_SIDE as f64 - 0.5) * 20.0),
                 ) as f32
             })
             .collect()
@@ -197,6 +214,27 @@ impl State {
             ..Default::default()
         });
 
+        let atoms = molecule
+            .iter()
+            .map(|atom| GpuAtom {
+                radius: 0.25,
+                color: atom.atom_type().color(),
+                pos: atom.position().data.0[0].map(|x| x as f32),
+            })
+            .collect::<Vec<_>>();
+
+        let atom_data = std::iter::empty()
+            .chain(&(atoms.len() as i32).to_ne_bytes())
+            .chain(bytemuck::cast_slice(&atoms))
+            .copied()
+            .collect::<Vec<_>>();
+
+        let atom_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: None,
+            contents: &atom_data,
+            usage: BufferUsages::STORAGE,
+        });
+
         let bg_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: None,
             entries: &[
@@ -216,6 +254,16 @@ impl State {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
+                BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
             ],
         });
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
@@ -230,11 +278,19 @@ impl State {
                     binding: 1,
                     resource: BindingResource::Sampler(&density_sampler),
                 },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::Buffer(BufferBinding {
+                        buffer: &atom_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
             ],
         });
 
-        let vert_shader = device.create_shader_module(include_spirv!("../shaders/vert.spv"));
-        let frag_shader = device.create_shader_module(include_spirv!("../shaders/frag.spv"));
+        let vert_shader = read_shader(&device, "volumetric/src/shaders/vertex.wgsl");
+        let frag_shader = read_shader(&device, "volumetric/src/shaders/fragment.wgsl");
 
         let rp_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
@@ -290,7 +346,7 @@ impl State {
             cam_rig: CameraRig::builder()
                 .with(Position::new(Vec3::Y))
                 .with(YawPitch::new())
-                .with(Smooth::new_position(0.1))
+                .with(Smooth::new_position(0.5))
                 .build(),
             density_scale: 1.0,
 
@@ -381,9 +437,9 @@ impl State {
         let move_vec = self.cam_rig.final_transform.rotation
             * Vec3::new(move_right, move_up, move_fwd).clamp_length_max(1.0)
             * if is_down(VirtualKeyCode::LShift) {
-                0.25
+                0.5
             } else {
-                0.05
+                0.1
             };
 
         self.cam_rig
