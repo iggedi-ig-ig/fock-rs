@@ -20,14 +20,12 @@ pub fn read_xyz_file<P: AsRef<Path>>(path: P, basis_set: &BasisSet) -> Result<Ve
 
     let mut atoms = Vec::new();
     for cap in pattern.captures_iter(&content) {
-        let symbol = &cap[1];
-
         // multiply by 1.89 to convert to correct unit
         let x = cap[2].parse::<f64>()? * 1.89;
         let y = cap[3].parse::<f64>()? * 1.89;
         let z = cap[4].parse::<f64>()? * 1.89;
 
-        atoms.push(basis_set.get(Vector3::new(x, y, z), AtomType::from_symbol(&symbol)));
+        atoms.push(basis_set.get(Vector3::new(x, y, z), AtomType::from_symbol(&cap[1])));
     }
 
     Ok(atoms)

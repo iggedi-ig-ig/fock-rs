@@ -18,10 +18,10 @@ use wgpu::{
     Extent3d, Features, FilterMode, FragmentState, ImageDataLayout, Instance, Limits, LoadOp,
     Operations, PipelineLayoutDescriptor, PresentMode, PrimitiveState, PrimitiveTopology,
     PushConstantRange, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerBindingType,
-    SamplerBorderColor, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration,
-    SurfaceError, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
+    RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, SamplerBorderColor,
+    SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, SurfaceError, Texture,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureViewDescriptor, TextureViewDimension, VertexState,
 };
 use winit::dpi::PhysicalSize;
 use winit::event::{
@@ -352,7 +352,6 @@ impl State {
                         .entry(*key)
                         .and_modify(|entry| *entry = pressed)
                         .or_insert(pressed);
-                    return;
                 }
             }
         } else if let &WindowEvent::MouseWheel {
