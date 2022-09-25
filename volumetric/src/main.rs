@@ -136,7 +136,7 @@ impl State {
 
         let molecule = chemfiles::xyz::read_xyz_file(
             "chemfiles/molecules/benzene.xyz",
-            &basis_set::basis_sets::BASIS_STO_3G,
+            &basis_set::basis_sets::BASIS_STO_6G,
         )
         .expect("xyz file is invalid");
 

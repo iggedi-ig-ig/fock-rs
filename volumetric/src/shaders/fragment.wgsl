@@ -45,8 +45,8 @@ var<storage> atomBuf: AtomBuffer;
 var<push_constant> uniforms: Uniforms;
 
 let march_iters: i32 = 100;
-let iters: f32 = 150.0;
-let step_size: f32 = 0.25;
+let iters: f32 = 350.0;
+let step_size: f32 = 0.05;
 
 fn rot2D(a: f32) -> mat2x2<f32> {
     let s = sin(a);
@@ -127,18 +127,21 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
     var pos: f32 = 0.0;
     var neg: f32 = 0.0;
 
-    for (var i = 0; i < i32(iters) && f32(i) * step_size < dist; i++) {
-        let p = ro + rd * f32(i) * step_size;
+    for (var i = 0; i < i32(iters); i++) {
+        let d = f32(i) * step_size;
+
+        let p = ro + rd * min(d, dist + step_size);
 
         let val = textureSample(densityMap, smplr, p / 20.0 + 0.5).r;
 
         pos += max(val, 0.0);
         neg -= min(val, 0.0);
+
+        if (d > dist + step_size) { break; }
     }
 
+    let wave = uniforms.dens_multiplier * (neg + pos) / iters;
 
-    let wave = (neg + pos) / iters;
-    let addCol = vec3<f32>(neg, 0.0, pos) * wave * wave * uniforms.dens_multiplier;
-
-    return FragmentOutput(vec4<f32>(col + addCol, 1.0));
+    let color = mix(col, vec3<f32>(neg, 0.0, pos), wave * wave);
+    return FragmentOutput(vec4<f32>(color, 1.0));
 }
