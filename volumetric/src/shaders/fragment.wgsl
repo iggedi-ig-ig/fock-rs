@@ -25,7 +25,7 @@ struct Uniforms {
 }
 
 struct FragmentOutput {
-    @location(0) fragColor: vec4<f32>,  
+    @location(0) fragColor: vec4<f32>,
 }
 
 struct MarchResult {
@@ -42,8 +42,35 @@ var<push_constant> uniforms: Uniforms;
 let march_iters: i32 = 100;
 let march_epsilon: f32 = 1e-2;
 
-let iters: f32 = 200.0;
-let step_size: f32 = 0.1;
+let iters: f32 = 250.0;
+
+let box_size: f32 = 20.0;
+
+fn rayAABB(ro: vec3<f32>, rd: vec3<f32>, bmin: vec3<f32>, bmax: vec3<f32>) -> vec2<f32> {
+    let inv_rd = 1.0 / rd;
+
+    let t1 = (bmin - ro) * inv_rd;
+    let t2 = (bmax - ro) * inv_rd;
+
+    let tmin = max(max(min(t1.x, t2.x), min(t1.y, t2.y)), min(t1.z, t2.z));
+    let tmax = min(min(max(t1.x, t2.x), max(t1.y, t2.y)), max(t1.z, t2.z));
+
+    return vec2<f32>(tmin, tmax);
+}
+
+fn raySphere(ro: vec3<f32>, rd: vec3<f32>, center: vec3<f32>, radius: f32) -> vec2<f32> {
+    let m = ro - center;
+    let b = dot(m, rd);
+    let c = dot(m, m) - radius * radius;
+
+    if (c > 0.0 && b > 0.0f) { return vec2<f32>(0.0, -1.0); }
+
+    let discr = b * b - c;
+    if (discr < 0.0f) { return vec2<f32>(0.0, -1.0); }
+
+    let r = sqrt(discr);
+    return vec2<f32>(-b - r, -b + r);
+}
 
 fn rot2D(a: f32) -> mat2x2<f32> {
     let s = sin(a);
@@ -52,52 +79,27 @@ fn rot2D(a: f32) -> mat2x2<f32> {
     return mat2x2<f32>(c, -s, s, c);
 }
 
-fn molecule(p: vec3<f32>) -> vec4<f32> {
-    var closest: i32;
-    var minDistSq: f32 = 1e12;
+fn atom(ro: vec3<f32>, rd:vec3<f32>) -> vec4<f32> {
+    var min_t = 1000.0;
+    var color: vec3<f32> = vec3<f32>(0.0);
     for (var i = 0; i < atomBuf.size; i++) {
         let atom = atomBuf.atoms[i];
-        let diff = vec3<f32>(atom.pos_x, atom.pos_y, atom.pos_z) - p;
+        let atom_pos = vec3<f32>(atom.pos_x, atom.pos_y, atom.pos_z);
+        let atom_col = vec3<f32>(atom.red, atom.green, atom.blue);
+        let atom_radius = atom.radius;
+        let intersection = raySphere(ro, rd, atom_pos, atom_radius);
 
-        let distSq = dot(diff, diff);
+        if (intersection.x < intersection.y) {
+            let t = intersection.x;
 
-        if (distSq < minDistSq) {
-            minDistSq = distSq;
-            closest = i;
+            if (t < min_t) {
+                min_t = t;
+                color = atom_col;
+            }
         }
     }
 
-    let atom = atomBuf.atoms[closest];
-    let color = vec3<f32>(atom.red, atom.green, atom.blue);
-
-    return vec4<f32>(color, sqrt(minDistSq) - atom.radius);
-}
-
-fn normal(p: vec3<f32>) -> vec3<f32> {
-    let e = vec2<f32>(0.001, 0.0);
-    var n: vec3<f32>;
-
-    n.x = molecule(p + e.xyy).w - molecule(p - e.xyy).w;
-    n.y = molecule(p + e.yxy).w - molecule(p - e.yxy).w;
-    n.z = molecule(p + e.yyx).w - molecule(p - e.yyx).w;
-
-    return normalize(n);
-}
-
-fn march(ro: vec3<f32>, rd: vec3<f32>) -> MarchResult {
-    var dist: f32 = 0.0;
-
-    for (var i = 0; i < march_iters; i++) {
-        let p: vec3<f32> = ro + rd * dist;
-        let res = molecule(p);
-
-        dist += res.w;
-
-        if (res.w < march_epsilon) {  return MarchResult(dist, res.rgb); }
-        else if (dist > 50.0) { break; }
-    }
-
-    return MarchResult(dist, vec3<f32>(0.0));
+    return vec4<f32>(color, min_t);
 }
 
 @fragment
@@ -114,44 +116,39 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
     rd.x = rd_rotated_xz.x;
     rd.z = rd_rotated_xz.y;
 
-    let result = march(ro, rd);
-    let dist = result.dist;
-    var col = vec3<f32>(result.color);
+    // render molecule
+    let result = atom(ro, rd);
+    let col = result.rgb;
+    let dist = result.w;
 
-    if (dist < 50.0) {
-        let n = normal(ro + rd * dist);
-        let diff = dot(-n, rd);
+    // bounding volume intersection
+    // 1.5 approx sqrt(2)
+    let intersection = raySphere(ro, rd, vec3<f32>(0.0), box_size * 1.5);
 
-        col *= diff * 0.9 + 0.1;
+    // ray through bounding volume
+    var t_start = max(0.0, intersection.x);
+    var t_end = min(dist, intersection.y);
+
+    let ray_distance = t_end - intersection.x;
+    let step_size = ray_distance / iters;
+
+    var acc_neg = 0.0;
+    var acc_pos = 0.0;
+    var acc_prob = 0.0;
+    for (var t = t_start; t < t_end && acc_prob < 1.0; t += step_size) {
+        let p = ro + rd * t;
+
+        // wave function value at p
+        let wave = textureSample(densityMap, smplr, p / box_size + 0.5).r;
+
+        acc_prob += wave * wave / step_size * uniforms.dens_multiplier;
+        acc_neg -= min(0.0, wave) / step_size;
+        acc_pos += max(0.0, wave) / step_size;
     }
 
-    var pos: f32 = 0.0;
-    var neg: f32 = 0.0;
+    // divide by iters per distance unit
+    var waveColor = mix(vec3<f32>(acc_neg, 0.0, 0.0), vec3<f32>(0.0, 0.0, acc_pos), acc_pos / (acc_neg + acc_pos));
 
-    var was_in = false;
-    for (var i = 0; i < i32(iters); i++) {
-        let d = f32(i) * step_size;
-
-        let p = ro + rd * min(d, dist + march_epsilon);
-
-        let inside = abs(p.x) < 10.0 && abs(p.y) < 10.0 && abs(p.z) < 10.0;
-        if (was_in && !inside) {
-            break;
-        } else if (!was_in && inside) {
-            was_in = true;
-        }
-
-        let val = textureSample(densityMap, smplr, p / 20.0 + 0.5).r;
-
-        pos += max(val, 0.0);
-        neg -= min(val, 0.0);
-
-        if (d > dist + march_epsilon) { break; }
-    }
-
-    let wave = uniforms.dens_multiplier * (neg + pos) / iters;
-    let prob = wave * wave;
-
-    let color = mix(col, vec3<f32>(neg, 0.0, pos), prob);
+    let color = mix(col, min(waveColor, vec3<f32>(1.0)), acc_prob);
     return FragmentOutput(vec4<f32>(color, 1.0));
 }

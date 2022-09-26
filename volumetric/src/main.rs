@@ -56,7 +56,7 @@ struct GpuAtom {
     pos: [f32; 3],
 }
 
-const VOX_COUNT_SIDE: usize = 200;
+const N_VOXELS: usize = 150;
 
 struct State {
     surface: Surface,
@@ -91,14 +91,14 @@ fn read_shader<P: AsRef<Path>>(device: &Device, path: P) -> ShaderModule {
 
 impl State {
     fn create_wave_texture_data(n: usize, orbitals: &MolecularOrbitals) -> Vec<f32> {
-        (0..VOX_COUNT_SIDE.pow(3))
+        (0..N_VOXELS.pow(3))
             .into_par_iter()
             .map(|i| {
-                let x = i % VOX_COUNT_SIDE;
-                let y = (i / VOX_COUNT_SIDE) % VOX_COUNT_SIDE;
-                let z = i / VOX_COUNT_SIDE.pow(2);
+                let x = i % N_VOXELS;
+                let y = (i / N_VOXELS) % N_VOXELS;
+                let z = i / N_VOXELS.pow(2);
                 orbitals[n].evaluate(
-                    &(Vector3::new(x, y, z).map(|x| x as f64 / VOX_COUNT_SIDE as f64 - 0.5) * 20.0),
+                    &(Vector3::new(x, y, z).map(|x| x as f64 / N_VOXELS as f64 - 0.5) * 20.0),
                 ) as f32
             })
             .collect()
@@ -115,13 +115,13 @@ impl State {
             )),
             ImageDataLayout {
                 offset: 0,
-                bytes_per_row: NonZeroU32::new(VOX_COUNT_SIDE as u32 * size_of::<f32>() as u32),
-                rows_per_image: NonZeroU32::new(VOX_COUNT_SIDE as u32),
+                bytes_per_row: NonZeroU32::new(N_VOXELS as u32 * size_of::<f32>() as u32),
+                rows_per_image: NonZeroU32::new(N_VOXELS as u32),
             },
             Extent3d {
-                width: VOX_COUNT_SIDE as u32,
-                height: VOX_COUNT_SIDE as u32,
-                depth_or_array_layers: VOX_COUNT_SIDE as u32,
+                width: N_VOXELS as u32,
+                height: N_VOXELS as u32,
+                depth_or_array_layers: N_VOXELS as u32,
             },
         );
 
@@ -185,9 +185,9 @@ impl State {
         let density_texture = device.create_texture(&TextureDescriptor {
             label: None,
             size: Extent3d {
-                width: VOX_COUNT_SIDE as u32,
-                height: VOX_COUNT_SIDE as u32,
-                depth_or_array_layers: VOX_COUNT_SIDE as u32,
+                width: N_VOXELS as u32,
+                height: N_VOXELS as u32,
+                depth_or_array_layers: N_VOXELS as u32,
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -489,7 +489,7 @@ impl State {
                     yaw,
                     pitch,
                     inv_aspect: self.size.height as f32 / self.size.width as f32,
-                    vox_side: VOX_COUNT_SIDE as u32,
+                    vox_side: N_VOXELS as u32,
                 }),
             );
             render_pass.set_bind_group(0, &self.bind_group, &[]);
@@ -515,7 +515,7 @@ async fn main() {
     )
     .expect("xyz file is invalid");
 
-    let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
+    let hf_result = molecule.try_scf(100, 1e-12, 0).expect("scf failed");
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
