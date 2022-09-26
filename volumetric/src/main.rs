@@ -1,3 +1,4 @@
+use basis_set::atom::Atom;
 use bytemuck::{Pod, Zeroable};
 use dolly::glam::{EulerRot, Vec3};
 use dolly::prelude::*;
@@ -131,16 +132,8 @@ impl State {
         );
     }
 
-    async fn new(window: &Window) -> Self {
+    async fn new(window: &Window, molecule: &Vec<Atom>, hf_result: HartreeFockResult) -> Self {
         let size = window.inner_size();
-
-        let molecule = chemfiles::xyz::read_xyz_file(
-            "chemfiles/molecules/benzene.xyz",
-            &basis_set::basis_sets::BASIS_STO_6G,
-        )
-        .expect("xyz file is invalid");
-
-        let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
 
         let instance = Instance::new(Backends::VULKAN);
         let surface = unsafe { instance.create_surface(window) };
@@ -512,16 +505,24 @@ impl State {
 #[tokio::main]
 async fn main() {
     pretty_env_logger::formatted_builder()
-        .filter_level(LevelFilter::Info)
+        .filter_module("scf", LevelFilter::Debug)
+        .filter_module("volumetric", LevelFilter::Debug)
         .init();
+
+    let molecule = chemfiles::xyz::read_xyz_file(
+        "chemfiles/molecules/benzene.xyz",
+        &basis_set::basis_sets::BASIS_STO_3G,
+    )
+    .expect("xyz file is invalid");
+
+    let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(1920, 1080))
         .build(&event_loop)
         .unwrap();
-
-    let mut state = State::new(&window).await;
+    let mut state = State::new(&window, &molecule, hf_result).await;
     state.update_density_texture();
 
     window
@@ -558,6 +559,16 @@ async fn main() {
         },
         Event::RedrawRequested(window_id) if window_id == window.id() => {
             state.update();
+
+            window.set_title(&*format!(
+                "Energy Level: {}/{} (E: {:+0.1} eV, {:+0.2} Hartree) | total energy: {:+0.1} eV, {:+0.2} Hartree",
+                state.energy_level,
+                state.hf_result.n_basis - 1,
+                state.hf_result.orbital_energies[state.energy_level] * 27.211,
+                state.hf_result.orbital_energies[state.energy_level],
+                state.hf_result.total_energy * 27.211,
+                state.hf_result.total_energy
+            ));
 
             match state.render() {
                 Ok(_) => {}
