@@ -510,7 +510,7 @@ async fn main() {
         .init();
 
     let molecule = chemfiles::xyz::read_xyz_file(
-        "chemfiles/molecules/benzene.xyz",
+        "chemfiles/molecules/adamantane.xyz",
         &basis_set::basis_sets::BASIS_STO_3G,
     )
     .expect("xyz file is invalid");
