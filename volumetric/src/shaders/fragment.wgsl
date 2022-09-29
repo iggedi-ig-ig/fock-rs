@@ -39,9 +39,6 @@ struct MarchResult {
 
 var<push_constant> uniforms: Uniforms;
 
-let march_iters: i32 = 100;
-let march_epsilon: f32 = 1e-2;
-
 let iters: f32 = 250.0;
 
 let box_size: f32 = 20.0;
@@ -122,33 +119,42 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
     let dist = result.w;
 
     // bounding volume intersection
-    // 1.5 approx sqrt(2)
-    let intersection = raySphere(ro, rd, vec3<f32>(0.0), box_size * 1.5);
+    let intersection = rayAABB(ro, rd, vec3(-box_size * 0.5), vec3(box_size * 0.5));
 
     // ray through bounding volume
     var t_start = max(0.0, intersection.x);
     var t_end = min(dist, intersection.y);
 
-    let ray_distance = t_end - intersection.x;
-    let step_size = ray_distance / iters;
+    let ray_distance = t_end - t_start;
+    let step_size = max(ray_distance, box_size) / iters;
+
+    var intensity = 1.0;
 
     var acc_neg = 0.0;
     var acc_pos = 0.0;
-    var acc_prob = 0.0;
-    for (var t = t_start; t < t_end && acc_prob < 1.0; t += step_size) {
+    var acc_density = 0.0;
+    for (var t = t_start; t < t_end && intensity > 0.0; t += step_size) {
         let p = ro + rd * t;
 
         // wave function value at p
         let wave = textureSample(densityMap, smplr, p / box_size + 0.5).r;
+        let prob = wave * wave * uniforms.dens_multiplier;
 
-        acc_prob += wave * wave / step_size * uniforms.dens_multiplier;
-        acc_neg -= min(0.0, wave) / step_size;
-        acc_pos += max(0.0, wave) / step_size;
+        acc_density += prob * step_size;
+
+        // amount of reflected / absorbed intensity of the light at this position
+        let reflected = intensity * prob;
+        intensity = max(0.0, intensity - reflected);
+
+        // probability of light reaching this far into the probability density
+        let prob = 1.0 / max(1e-3, acc_density);
+
+        acc_pos += max(0.0, wave) * reflected * prob;
+        acc_neg -= min(0.0, wave) * reflected * prob;
     }
 
-    // divide by iters per distance unit
-    var waveColor = mix(vec3<f32>(acc_neg, 0.0, 0.0), vec3<f32>(0.0, 0.0, acc_pos), acc_pos / (acc_neg + acc_pos));
+    let waveCol = mix(vec3<f32>(min(1.0, acc_neg), 0.0, 0.0), vec3<f32>(0.0, 0.0, min(1.0, acc_pos)), acc_pos / max(1e-3, acc_pos + acc_neg));
+    let color = mix(col, waveCol, 1.0 - intensity);
 
-    let color = mix(col, min(waveColor, vec3<f32>(1.0)), acc_prob);
     return FragmentOutput(vec4<f32>(color, 1.0));
 }
