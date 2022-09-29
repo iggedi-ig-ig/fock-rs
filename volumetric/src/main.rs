@@ -39,13 +39,13 @@ use winit::window::{CursorGrabMode, Window, WindowBuilder};
 #[derive(Copy, Clone, Zeroable, Pod)]
 struct PushConstants {
     dens_multiplier: f32,
+    box_size: f32,
     pos_x: f32,
     pos_y: f32,
     pos_z: f32,
     yaw: f32,
     pitch: f32,
     inv_aspect: f32,
-    vox_side: u32,
 }
 
 #[repr(C)]
@@ -57,6 +57,7 @@ struct GpuAtom {
 }
 
 const N_VOXELS: usize = 150;
+const BOX_SIZE: f64 = 20.0;
 
 struct State {
     surface: Surface,
@@ -98,7 +99,7 @@ impl State {
                 let y = (i / N_VOXELS) % N_VOXELS;
                 let z = i / N_VOXELS.pow(2);
                 orbitals[n].evaluate(
-                    &(Vector3::new(x, y, z).map(|x| x as f64 / N_VOXELS as f64 - 0.5) * 20.0),
+                    &(Vector3::new(x, y, z).map(|x| x as f64 / N_VOXELS as f64 - 0.5) * BOX_SIZE),
                 ) as f32
             })
             .collect()
@@ -483,13 +484,13 @@ impl State {
                 0,
                 bytemuck::bytes_of(&PushConstants {
                     dens_multiplier: self.density_scale,
+                    box_size: BOX_SIZE as f32,
                     pos_x: pos_dolly.x,
                     pos_y: pos_dolly.y,
                     pos_z: pos_dolly.z,
                     yaw,
                     pitch,
                     inv_aspect: self.size.height as f32 / self.size.width as f32,
-                    vox_side: N_VOXELS as u32,
                 }),
             );
             render_pass.set_bind_group(0, &self.bind_group, &[]);
@@ -510,12 +511,12 @@ async fn main() {
         .init();
 
     let molecule = chemfiles::xyz::read_xyz_file(
-        "chemfiles/molecules/adamantane.xyz",
+        "chemfiles/molecules/cubane.xyz",
         &basis_set::basis_sets::BASIS_STO_3G,
     )
     .expect("xyz file is invalid");
 
-    let hf_result = molecule.try_scf(100, 1e-12, 0).expect("scf failed");
+    let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()

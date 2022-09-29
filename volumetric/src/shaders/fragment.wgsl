@@ -15,22 +15,17 @@ struct AtomBuffer {
 
 struct Uniforms {
     dens_multiplier: f32,
+    box_size: f32,
     pos_x: f32,
     pos_y: f32,
     pos_z: f32,
     yaw: f32,
     pitch: f32,
     invAspect: f32,
-    nvox: u32,
 }
 
 struct FragmentOutput {
     @location(0) fragColor: vec4<f32>,
-}
-
-struct MarchResult {
-    dist: f32,
-    color: vec3<f32>,
 }
 
 @group(0) @binding(0) var densityMap: texture_3d<f32>;
@@ -40,8 +35,6 @@ struct MarchResult {
 var<push_constant> uniforms: Uniforms;
 
 let iters: f32 = 250.0;
-
-let box_size: f32 = 20.0;
 
 fn rayAABB(ro: vec3<f32>, rd: vec3<f32>, bmin: vec3<f32>, bmax: vec3<f32>) -> vec2<f32> {
     let inv_rd = 1.0 / rd;
@@ -119,6 +112,7 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
     let dist = result.w;
 
     // bounding volume intersection
+    let box_size = uniforms.box_size;
     let intersection = rayAABB(ro, rd, vec3(-box_size * 0.5), vec3(box_size * 0.5));
 
     // ray through bounding volume
