@@ -87,7 +87,7 @@ impl GaussianPrimitive {
     }
 
     /// nuclear attraction integral between two primitive gaussians
-    fn _nuclear_attraction(
+    pub fn _nuclear_attraction(
         _a @ &GaussianPrimitive {
             angular: [l1, m1, n1],
             exponent: a,

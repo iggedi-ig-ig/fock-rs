@@ -10,6 +10,7 @@ macro_rules! define_basis_sets {
 }
 
 define_basis_sets! {
+    BASIS_STO_2G = "data/STO-2G.json",
     BASIS_STO_3G = "data/STO-3G.json",
     BASIS_STO_6G = "data/STO-6G.json",
     BASIS_3_21G = "data/3-21G.json",

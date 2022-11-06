@@ -4,7 +4,7 @@ use nalgebra::Vector3;
 pub struct GaussianPrimitive {
     pub(crate) angular: [i32; 3],
     pub(crate) exponent: f64,
-    pub(crate) coefficient: f64,
+    pub coefficient: f64,
 }
 
 impl GaussianPrimitive {

@@ -4,7 +4,8 @@ pub mod utils;
 use crate::molecular_orbitals::MolecularOrbitals;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
-use basis::BasisFunction;
+use basis::primitives::GaussianPrimitive;
+use basis::{BasisFunction, PointCharge};
 use basis_set::atom::Atom;
 use log::{debug, info, warn};
 use nalgebra::{DMatrix, DVector};
@@ -209,7 +210,7 @@ pub fn test_integrals() {
     let basis = &basis_set::basis_sets::BASIS_STO_3G;
     let molecule = [
         basis.get(Vector3::zeros(), AtomType::Hydrogen),
-        basis.get(Vector3::new(0.0, 0.0, 1.6), AtomType::Hydrogen),
+        basis.get(Vector3::new(0.0, 0.0, 1.2), AtomType::Hydrogen),
     ];
 
     let basis = molecule
@@ -232,7 +233,23 @@ pub fn test_integrals() {
         ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
     });
 
-    print!("Overlap: {:0.5}", overlap);
-    print!("Kinetic: {:0.5}", kinetic);
-    print!("Nuclear: {:0.5}", nuclear);
+    let prim = GaussianPrimitive::new([0; 3], 1.0, 1.0);
+    println!(
+        "{:?}",
+        prim.coefficient.powi(2)
+            * GaussianPrimitive::_nuclear_attraction(
+                &prim,
+                &prim,
+                &Vector3::zeros(),
+                &Vector3::zeros(),
+                &PointCharge {
+                    position: Vector3::new(0.0, 1.0, 0.0),
+                    charge: 1.0
+                }
+            )
+    );
+
+    print!("Overlap: {}", overlap);
+    print!("Kinetic: {}", kinetic);
+    print!("Nuclear: {}", nuclear);
 }

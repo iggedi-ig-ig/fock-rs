@@ -1,5 +1,6 @@
 use basis_set::atom::Atom;
 use bytemuck::{Pod, Zeroable};
+use clap::Parser;
 use dolly::glam::{EulerRot, Vec3};
 use dolly::prelude::*;
 use log::{error, info, LevelFilter};
@@ -12,7 +13,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::mem::size_of;
 use std::num::NonZeroU32;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
@@ -56,7 +57,7 @@ struct GpuAtom {
     pos: [f32; 3],
 }
 
-const N_VOXELS: usize = 150;
+const N_VOXELS: usize = 225;
 const BOX_SIZE: f64 = 20.0;
 
 struct State {
@@ -81,9 +82,11 @@ struct State {
 
     hf_result: HartreeFockResult,
     energy_level: usize,
+
+    cache: HashMap<usize, Vec<f32>>,
 }
 
-fn read_shader<P: AsRef<Path>>(device: &Device, path: P) -> ShaderModule {
+fn load_shader<P: AsRef<Path>>(device: &Device, path: P) -> ShaderModule {
     device.create_shader_module(ShaderModuleDescriptor {
         label: None,
         source: ShaderSource::Wgsl(Cow::Owned(std::fs::read_to_string(path).unwrap())),
@@ -108,12 +111,13 @@ impl State {
     fn update_density_texture(&mut self) {
         let before = Instant::now();
 
+        let data = self.cache.entry(self.energy_level).or_insert_with(|| {
+            Self::create_wave_texture_data(self.energy_level, &self.hf_result.orbitals)
+        });
+
         self.queue.write_texture(
             self.density_texture.as_image_copy(),
-            bytemuck::cast_slice(&Self::create_wave_texture_data(
-                self.energy_level,
-                &self.hf_result.orbitals,
-            )),
+            bytemuck::cast_slice(&data),
             ImageDataLayout {
                 offset: 0,
                 bytes_per_row: NonZeroU32::new(N_VOXELS as u32 * size_of::<f32>() as u32),
@@ -133,7 +137,7 @@ impl State {
         );
     }
 
-    async fn new(window: &Window, molecule: &Vec<Atom>, hf_result: HartreeFockResult) -> Self {
+    async fn new(window: &Window, molecule: &[Atom], hf_result: HartreeFockResult) -> Self {
         let size = window.inner_size();
 
         let instance = Instance::new(Backends::VULKAN);
@@ -283,8 +287,8 @@ impl State {
             ],
         });
 
-        let vert_shader = read_shader(&device, "volumetric/src/shaders/vertex.wgsl");
-        let frag_shader = read_shader(&device, "volumetric/src/shaders/fragment.wgsl");
+        let vert_shader = load_shader(&device, "volumetric/src/shaders/vertex.wgsl");
+        let frag_shader = load_shader(&device, "volumetric/src/shaders/fragment.wgsl");
 
         let rp_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: None,
@@ -346,6 +350,8 @@ impl State {
 
             hf_result,
             energy_level: 0,
+
+            cache: HashMap::new(),
         }
     }
 
@@ -503,6 +509,26 @@ impl State {
     }
 }
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The path to the molecule file to use.
+    /// This uses the XYZ format for molecules.
+    #[arg(short, long)]
+    path: PathBuf,
+
+    /// The max amount of iterations the scf cycle will be performed.
+    /// If the scf cycle hasn't finished after this amount of iterations,
+    /// the unconverted wave function is returned.
+    #[arg(short, long, default_value_t = 100)]
+    iters: usize,
+
+    /// The RMS of the density matrix that will be considered as converged.
+    /// I.e., if the RMS gets below this value, the scf loop will terminate.
+    #[arg(short, long, default_value_t = 1e-6)]
+    epsilon: f64,
+}
+
 #[tokio::main]
 async fn main() {
     pretty_env_logger::formatted_builder()
@@ -510,11 +536,9 @@ async fn main() {
         .filter_module("volumetric", LevelFilter::Debug)
         .init();
 
-    let molecule = chemfiles::xyz::read_xyz_file(
-        "chemfiles/molecules/cubane.xyz",
-        &basis_set::basis_sets::BASIS_STO_3G,
-    )
-    .expect("xyz file is invalid");
+    let args: Args = Args::parse();
+    let molecule = chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_STO_3G)
+        .expect("xyz file is invalid");
 
     let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
 

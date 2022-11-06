@@ -1,4 +1,5 @@
 use anyhow::Result;
+use clap::Parser;
 use kiss3d::event::{Action, Key, WindowEvent};
 use kiss3d::window::Window;
 use log::{info, LevelFilter};
@@ -6,6 +7,7 @@ use nalgebra::{Point3, Translation3, Vector3};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use scf::SelfConsistentField;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -19,16 +21,35 @@ struct DataPoint {
 const POINTS_PER_N: usize = 2_500_000;
 const POINTS_PER_ITER: usize = 125_000;
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The path to the molecule file to use.
+    /// This uses the XYZ format for molecules.
+    #[arg(short, long)]
+    path: PathBuf,
+
+    /// The max amount of iterations the scf cycle will be performed.
+    /// If the scf cycle hasn't finished after this amount of iterations,
+    /// the unconverted wave function is returned.
+    #[arg(short, long, default_value_t = 100)]
+    iters: usize,
+
+    /// The RMS of the density matrix that will be considered as converged.
+    /// I.e., if the RMS gets below this value, the scf loop will terminate.
+    #[arg(short, long, default_value_t = 1e-6)]
+    epsilon: f64,
+}
+
 fn main() -> Result<()> {
+    let args: Args = Args::parse();
+
     env_logger::builder()
         .filter_level(LevelFilter::Debug)
         .init();
 
-    let molecule = chemfiles::xyz::read_xyz_file(
-        "chemfiles/molecules/benzene.xyz",
-        &basis_set::basis_sets::BASIS_STO_3G,
-    )?;
-    if let Some(result) = molecule.try_scf(100, 1e-6, 0) {
+    let molecule = chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_STO_3G)?;
+    if let Some(result) = molecule.try_scf(args.iters, args.epsilon, 0) {
         let n_basis = result.n_basis;
 
         let mut rng = XorShiftRng::from_entropy();
