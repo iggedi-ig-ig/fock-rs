@@ -151,13 +151,14 @@ where
                 2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
-            let density_rms = density
-                .diagonal()
-                .zip_fold(&new_density.diagonal(), 0.0, |acc, new, old| {
-                    acc + (new - old).powi(2)
-                })
-                .sqrt()
-                / n_basis as f64;
+            let density_rms = f64::sqrt(
+                density
+                    .diagonal()
+                    .zip_fold(&new_density.diagonal(), 0.0, |acc, new, old| {
+                        acc + (new - old).powi(2)
+                    })
+                    / n_basis as f64,
+            );
 
             density = new_density;
 
