@@ -14,20 +14,21 @@ use std::collections::HashMap;
 use std::mem::size_of;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
     AddressMode, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
     BufferBinding, BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FilterMode,
-    FragmentState, ImageDataLayout, Instance, Limits, LoadOp, Operations, PipelineLayoutDescriptor,
-    PresentMode, PrimitiveState, PrimitiveTopology, PushConstantRange, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, SamplerBindingType, SamplerBorderColor, SamplerDescriptor, ShaderModule,
-    ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface, SurfaceConfiguration,
-    SurfaceError, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
+    CommandEncoderDescriptor, CompositeAlphaMode, Device, DeviceDescriptor, Extent3d, Features,
+    FilterMode, FragmentState, ImageDataLayout, Instance, Limits, LoadOp, Operations,
+    PipelineLayoutDescriptor, PresentMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
+    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, SamplerBorderColor,
+    SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface,
+    SurfaceConfiguration, SurfaceError, Texture, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
+    VertexState,
 };
 use winit::dpi::PhysicalSize;
 use winit::event::{
@@ -183,7 +184,8 @@ impl State {
             format: supported_formats[0],
             width: size.width,
             height: size.height,
-            present_mode: PresentMode::Fifo,
+            present_mode: PresentMode::Immediate,
+            alpha_mode: CompositeAlphaMode::Auto,
         };
         surface.configure(&device, &config);
 
@@ -398,6 +400,16 @@ impl State {
                         self.update_density_texture();
                     }
                 }
+                VirtualKeyCode::Up => {
+                    if let ElementState::Pressed = state {
+                        self.density_scale *= 1.5;
+                    }
+                }
+                VirtualKeyCode::Down => {
+                    if let ElementState::Pressed = state {
+                        self.density_scale /= 1.5;
+                    }
+                }
                 key => {
                     let pressed = match state {
                         ElementState::Pressed => true,
@@ -555,6 +567,7 @@ async fn main() {
         .expect("failed to grab cursor");
     window.set_cursor_visible(false);
 
+    let mut last_frame = Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
         Event::DeviceEvent {
             event: DeviceEvent::MouseMotion { delta: (x, y) },
@@ -582,10 +595,11 @@ async fn main() {
             }
             _ => state.input(event),
         },
-        Event::RedrawRequested(window_id) if window_id == window.id() => {
+        Event::RedrawRequested(window_id) if window_id == window.id() && last_frame.elapsed() > Duration::from_millis(1000 / 30) => {
+            last_frame = Instant::now();
             state.update();
 
-            window.set_title(&*format!(
+            window.set_title(&format!(
                 "Energy Level: {}/{} (E: {:+0.1} eV, {:+0.2} Hartree) | total energy: {:+0.1} eV, {:+0.2} Hartree",
                 state.energy_level,
                 state.hf_result.n_basis - 1,

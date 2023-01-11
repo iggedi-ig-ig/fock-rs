@@ -13,9 +13,9 @@ pretty_env_logger = "0.4.0"
 scf = { path = "../scf" }
 nalgebra = "0.30.1"
 winit = "0.27.3"
-dolly = "0.3.1"
+dolly = "0.4.0"
 rayon = "1.5.3"
-wgpu = "0.13.1"
+wgpu = "0.14.2"
 log = "0.4.17"
 
 [dependencies.tokio]
