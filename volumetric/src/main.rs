@@ -118,7 +118,7 @@ impl State {
 
         self.queue.write_texture(
             self.density_texture.as_image_copy(),
-            bytemuck::cast_slice(&data),
+            bytemuck::cast_slice(data),
             ImageDataLayout {
                 offset: 0,
                 bytes_per_row: NonZeroU32::new(N_VOXELS as u32 * size_of::<f32>() as u32),

@@ -23,7 +23,7 @@ fn _boys_impl(n: i32, t: f64, mut curr: f64, exp_mt: f64) -> f64 {
 const DT: f64 = 0.15;
 const MAX_TABULATED_T: f64 = 30.0;
 const MAX_TABULATED_N: i32 = 10;
-pub(crate) const N: usize = (MAX_TABULATED_T as f64 / DT) as usize;
+pub(crate) const N: usize = (MAX_TABULATED_T / DT) as usize;
 
 pub fn boys_quadrature(t: f64, n: i32) -> f64 {
     let integrand = |x: f64| -> f64 { x.powi(2 * n) * f64::exp(-t * x.powi(2)) };
@@ -42,9 +42,7 @@ pub fn boys_quadrature(t: f64, n: i32) -> f64 {
 pub fn boys(t: f64, n: i32) -> f64 {
     assert!(
         n <= MAX_TABULATED_N,
-        "Boys-Function order {} is higher than max tabulated order {}",
-        n,
-        MAX_TABULATED_N
+        "Boys-Function order {n} is higher than max tabulated order {MAX_TABULATED_N}",
     );
 
     if t.abs() < 1e-16 {
