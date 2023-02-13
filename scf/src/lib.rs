@@ -4,13 +4,25 @@ pub mod utils;
 use crate::molecular_orbitals::MolecularOrbitals;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
-use basis::primitives::GaussianPrimitive;
-use basis::{BasisFunction, PointCharge};
+use basis::BasisFunction;
 use basis_set::atom::Atom;
 use log::{debug, info, warn};
 use nalgebra::{DMatrix, DVector};
 use std::time::Instant;
 
+/// A struct containing the results of a Hartree-Fock calculation.
+///
+/// # Fields
+///
+/// * `orbitals`: `MolecularOrbitals` - Molecular orbitals obtained from the calculation.
+/// * `orbital_energies`: `DVector<f64>` - Eigenvalues of the Fock matrix.
+/// * `density_matrix`: `DMatrix<f64>` - Electron density matrix obtained from the calculation.
+/// * `coefficient_matrix`: `DMatrix<f64>` - Coefficient matrix obtained from the calculation.
+/// * `electronic_energy`: `f64` - Electronic energy obtained from the calculation.
+/// * `total_energy`: `f64` - Total energy obtained from the calculation.
+/// * `iterations`: `usize` - Number of iterations used to obtain the result.
+/// * `n_electrons`: `usize` - Number of electrons in the system.
+/// * `n_basis`: `usize` - Number of basis functions used in the calculation.
 pub struct HartreeFockResult {
     pub orbitals: MolecularOrbitals,
     pub orbital_energies: DVector<f64>,
@@ -23,13 +35,28 @@ pub struct HartreeFockResult {
     pub n_basis: usize,
 }
 
+/// An enum representing possible errors that may arise during a Hartree-Fock calculation.
 #[derive(Copy, Clone, Debug)]
 pub enum HartreeFockError {
+    /// The Hartree-Fock calculation did not converge.
     NotConverged,
+    /// The Hartree-Fock calculation diverged.
     Diverged,
 }
 
 pub trait SelfConsistentField {
+    /// Perform a restricted Hartree-Fock calculation to approximate the electronic structure of a molecule.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_iters` - Maximum number of iterations to be used in the calculation.
+    /// * `epsilon` - Desired accuracy of the calculation.
+    /// * `molecule_charge` - Total charge of the molecule.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `Option<HartreeFockResult>`, where `HartreeFockResult` is a struct containing the HF solution.
+    /// If the calculation fails to converge within the specified maximum number of iterations, `None` is returned.
     fn try_scf(
         &self,
         max_iters: usize,
