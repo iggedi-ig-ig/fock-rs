@@ -39,6 +39,22 @@ pub fn boys_quadrature(t: f64, n: i32) -> f64 {
             + integrand(1.0) * 0.5)
 }
 
+/// Calculates the Boys function of order `n` and argument `t`, i.e. f_n(t).
+/// The Boys function is a special function that arises frequently in quantum chemistry,
+/// particularly in the calculation of electron-repulsion integrals.
+///
+/// # Arguments
+///
+/// * `t` - The argument of the Boys function.
+/// * `n` - The order of the Boys function.
+///
+/// # Panics
+///
+/// This function will panic if `n` is greater than the maximum tabulated order.
+///
+/// # Returns
+///
+/// The value of the Boys function f_n(t).
 pub fn boys(t: f64, n: i32) -> f64 {
     assert!(
         n <= MAX_TABULATED_N,
