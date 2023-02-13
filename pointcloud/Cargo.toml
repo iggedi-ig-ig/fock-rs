@@ -13,7 +13,7 @@ nalgebra = { version = "0.30.1", features = ["rand"] }
 clap = { version = "4.0.0-rc.2", features = ["derive"]}
 basis_set = { path = "../basis_set" }
 scf = { path = "../scf" }
-env_logger = "0.9.0"
+env_logger = "0.10.0"
 log = "0.4.14"
 chemfiles = { path = "../chemfiles" }
 anyhow = "1.0.65"

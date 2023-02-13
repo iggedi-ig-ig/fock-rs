@@ -127,9 +127,8 @@ fn main() -> Result<()> {
 
         while window.render() {
             let current_energy_level = *n.lock().unwrap();
-            window.set_title(&*format!(
-                "Energy Level: {}/{} (E: {:+0.5} Hartrees) | total energy: {:+0.5} Hartrees",
-                current_energy_level,
+            window.set_title(&format!(
+                "Energy Level: {current_energy_level}/{} (E: {:+0.5} Hartrees) | total energy: {:+0.5} Hartrees",
                 n_basis - 1,
                 result.orbital_energies[current_energy_level], // <-- Hartree to eV conversion factor,
                 result.total_energy
