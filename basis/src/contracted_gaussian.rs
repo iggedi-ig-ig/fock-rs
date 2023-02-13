@@ -4,9 +4,13 @@ use crate::{BasisFunction, PointCharge};
 use nalgebra::Vector3;
 use smallvec::SmallVec;
 
+/// A contracted Gaussian function, composed of multiple Gaussian primitives
 #[derive(Clone, Debug)]
 pub struct ContractedGaussian {
+    /// The position of the Gaussian function
     position: Vector3<f64>,
+
+    /// The list of Gaussian primitives that compose the contracted Gaussian
     primitives: SmallVec<[GaussianPrimitive; Self::SMALL_VEC_SIZE]>,
 }
 

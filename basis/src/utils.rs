@@ -1,5 +1,32 @@
 use nalgebra::Vector3;
 
+/// Calculates the Hermite expansion of two arbitrary Gaussian functions centered at a and b with exponents i and j,
+/// respectively, for a distance of `dist`. The expansion is calculated at order `t`. This function is not optimized for
+/// speed and should be improved to use iterative methods.
+///
+/// # Arguments
+///
+/// * `[i, j, t]` - An array of exponents and expansion order
+/// * `dist` - The distance between the two Gaussian functions
+/// * `a` - The exponent of the first Gaussian function
+/// * `b` - The exponent of the second Gaussian function
+///
+/// # Returns
+///
+/// The value of the Hermite expansion at order `t`. If `t` is less than zero or greater
+/// than `i + j`, this function will return `0.0`.
+///
+/// # Examples
+///
+/// ```
+/// use basis::utils::hermite_expansion;
+///
+/// assert_eq!(hermite_expansion([1, 2, 3], 2.5, 3.0, 5.0), 1.9872458203327215e-9);
+/// ```
+///
+/// # References
+///
+/// [1] Goings, J. Integrals. https://joshuagoings.com/2017/04/28/integrals/
 #[allow(clippy::many_single_char_names)]
 // TODO: make this iterative
 // see https://joshuagoings.com/2017/04/28/integrals/
@@ -22,6 +49,24 @@ pub fn hermite_expansion([i, j, t]: [i32; 3], dist: f64, a: f64, b: f64) -> f64 
     }
 }
 
+/// coulomb_auxiliary calculates the auxiliary integral for two-electron integrals in Gaussian type
+/// orbital basis functions (GTOs).
+///
+/// # Arguments
+///
+/// * `t` - an `i32` representing the exponent of the x-component of the first GTO.
+/// * `u` - an `i32` representing the exponent of the y-component of the first GTO.
+/// * `v` - an `i32` representing the exponent of the z-component of the first GTO.
+/// * `n` - an `i32` representing the order of the auxiliary integral.
+/// * `p` - a `f64` representing the sum of the two exponents of the contracted GTOs.
+/// * `diff` - a `&Vector3<f64>` representing the difference vector between the center of the
+///            contracted GTOs.
+/// * `dist_sq` - a `f64` representing the squared distance between the centers of the contracted
+///               GTOs.
+///
+/// # Returns
+///
+/// The value of the auxiliary integral.
 #[allow(clippy::many_single_char_names)]
 // TODO: make this iterative
 // see https://joshuagoings.com/2017/04/28/integrals/

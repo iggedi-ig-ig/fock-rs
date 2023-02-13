@@ -8,6 +8,13 @@ use std::hash::Hash;
 use std::ops::Index;
 use std::sync::{Arc, Mutex};
 
+/// An integral index used in the two-electron integrals of a basis set.
+///
+/// The index represents the four indices (x, y, z, w) used to calculate a two-electron integral:
+///   int_{x,y,z,w} = int_{xy|zw} = <x y | z w>
+///
+/// Since two-electron integrals are symmetric in (xy) and (zw), this struct stores its indices
+/// with the correct order: xy <= zw, reducing the total number of unique integrals to compute.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct IntegralIndex {
     x: usize,
@@ -17,11 +24,13 @@ pub struct IntegralIndex {
 }
 
 impl IntegralIndex {
+    /// Creates a new integral index with the given indices.
     pub fn new(index: (usize, usize, usize, usize)) -> Self {
         let (x, y, z, w) = Self::correct_order(index);
         Self { x, y, z, w }
     }
 
+    /// Returns the indices with the correct order, such that xy <= zw.
     pub fn correct_order(
         (x, y, z, w): (usize, usize, usize, usize),
     ) -> (usize, usize, usize, usize) {
@@ -39,16 +48,37 @@ impl IntegralIndex {
     }
 }
 
+/// An electron tensor representing electron-electron repulsion integrals between
+/// four contracted Gaussian functions in a given basis set.
 pub struct ElectronTensor {
     data: HashMap<IntegralIndex, f64>,
 }
 
 impl ElectronTensor {
+    /// Constructs an `ElectronTensor` from the given basis set. Computes electron-electron
+    /// repulsion integrals for each unique combination of four Gaussian functions in the basis
+    /// set and stores them in a hashmap. This method utilizes parallel processing with the
+    /// Rayon library to speed up computation time.
+    ///
+    /// # Arguments
+    ///
+    /// * `basis` - A slice of `ContractedGaussian` functions representing the basis set to use
+    /// for computing electron-electron repulsion integrals.
+    ///
+    /// # Returns
+    ///
+    /// An `ElectronTensor` containing a hashmap of electron-electron repulsion integrals
+    /// computed for each unique combination of four Gaussian functions in the given basis set.
     pub fn from_basis(basis: &[ContractedGaussian]) -> Self {
+        // Initialize variables for computing the total number of integrals and a thread-safe
+        // container for storing the resulting electron-electron repulsion integrals.
         let n_basis = basis.len();
         let n_integrals = (n_basis.pow(4) + 8 + 1) / 8;
         let data = Arc::new(Mutex::new(HashMap::new()));
 
+        // Use parallel processing to compute electron-electron repulsion integrals for each
+        // unique combination of four Gaussian functions in the basis set and store the result
+        // in the hashmap.
         (0..n_basis).par_bridge().for_each(|w| {
             (w..n_basis).for_each(|z| {
                 (0..n_basis).for_each(|y| {
@@ -79,6 +109,7 @@ impl ElectronTensor {
             );
         });
 
+        // Extract the hashmap from the thread-safe container and return an `ElectronTensor`.
         Self {
             data: Arc::try_unwrap(data).unwrap().into_inner().unwrap(),
         }
