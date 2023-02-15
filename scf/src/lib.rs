@@ -178,12 +178,11 @@ where
                 2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
+            const F: f64 = 0.25;
+            let new_density = F * &new_density + (1.0 - F) * &density;
+
             let density_rms = f64::sqrt(
-                density
-                    .diagonal()
-                    .zip_fold(&new_density.diagonal(), 0.0, |acc, new, old| {
-                        acc + (new - old).powi(2)
-                    })
+                density.zip_fold(&new_density, 0.0, |acc, new, old| acc + (new - old).powi(2))
                     / n_basis as f64,
             );
 
