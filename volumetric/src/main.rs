@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::mem::size_of;
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use wgpu::{
@@ -58,7 +59,8 @@ struct GpuAtom {
     pos: [f32; 3],
 }
 
-const N_VOXELS: usize = 150;
+/// per side. So there are N_VOXELS^3 voxels in total
+const N_VOXELS: usize = 200;
 const BOX_SIZE: f64 = 20.0;
 
 struct State {
@@ -96,17 +98,25 @@ fn load_shader<P: AsRef<Path>>(device: &Device, path: P) -> ShaderModule {
 
 impl State {
     fn create_wave_texture_data(n: usize, orbitals: &MolecularOrbitals) -> Vec<f32> {
-        (0..N_VOXELS.pow(3))
-            .into_par_iter()
-            .map(|i| {
+        let grid = Arc::new(Mutex::new(vec![0.0; N_VOXELS.pow(3)]));
+
+        const N_GROUPS: usize = 12;
+        let n_voxels = N_VOXELS.pow(3);
+        (0..n_voxels).step_by(N_GROUPS).par_bridge().for_each(|i| {
+            for j in 0..N_GROUPS.min(n_voxels - i) {
+                let i = i + j;
+
                 let x = i % N_VOXELS;
                 let y = (i / N_VOXELS) % N_VOXELS;
                 let z = i / N_VOXELS.pow(2);
-                orbitals[n].evaluate(
+
+                grid.lock().unwrap()[i] = orbitals[n].evaluate(
                     &(Vector3::new(x, y, z).map(|x| x as f64 / N_VOXELS as f64 - 0.5) * BOX_SIZE),
-                ) as f32
-            })
-            .collect()
+                ) as f32;
+            }
+        });
+
+        Arc::try_unwrap(grid).unwrap().into_inner().unwrap()
     }
 
     fn update_density_texture(&mut self) {
