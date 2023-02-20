@@ -178,8 +178,8 @@ where
                 2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
-            const F: f64 = 0.25;
-            let new_density = F * &new_density + (1.0 - F) * &density;
+            let f: f64 = f64::exp(-3.0 * (iter as f64 / max_iters as f64));
+            let new_density = f * &new_density + (1.0 - f) * &density;
 
             let density_rms = f64::sqrt(
                 density.zip_fold(&new_density, 0.0, |acc, new, old| acc + (new - old).powi(2))
@@ -217,7 +217,7 @@ where
                 return None;
             } else {
                 debug!(
-                    "Iteration {iter}: density rms: {density_rms:0.5e}, energy: {:0.5}",
+                    "Iteration {iter}: density rms: {density_rms:0.5e}, energy: {:0.5}, Interp: {f:0.3}",
                     electronic_energy + nuclear_repulsion
                 );
             }
@@ -228,55 +228,62 @@ where
 
 // STO-3G with dist = 1.6a_0: https://i.imgur.com/9lXD7N7.png
 // 6-31G  with dist = 1.6a_0: https://i.imgur.com/b2wa0Gd.png
-#[test]
-pub fn test_integrals() {
+#[cfg(test)]
+mod tests {
+    use super::*;
     use crate::utils::hermitian;
+    use basis::contracted_gaussian::ContractedGaussian;
+    use basis::primitives::GaussianPrimitive;
+    use basis::PointCharge;
     use basis_set::periodic_table::AtomType;
     use nalgebra::base::Vector3;
 
-    let basis = &basis_set::basis_sets::BASIS_STO_3G;
-    let molecule = [
-        basis.get(Vector3::zeros(), AtomType::Hydrogen),
-        basis.get(Vector3::new(0.0, 0.0, 1.2), AtomType::Hydrogen),
-    ];
+    #[test]
+    pub fn test_integrals() {
+        let basis = &basis_set::basis_sets::BASIS_STO_3G;
+        let molecule = [
+            basis.get(Vector3::zeros(), AtomType::Hydrogen),
+            basis.get(Vector3::new(0.0, 0.0, 1.2), AtomType::Hydrogen),
+        ];
 
-    let basis = molecule
-        .iter()
-        .flat_map(|atom| atom.basis().clone())
-        .collect::<Vec<_>>();
-    let point_charges = molecule
-        .iter()
-        .map(|atom| atom.point_charge())
-        .collect::<Vec<_>>();
-    let n = basis.len();
+        let basis = molecule
+            .iter()
+            .flat_map(|atom| atom.basis().clone())
+            .collect::<Vec<_>>();
+        let point_charges = molecule
+            .iter()
+            .map(|atom| atom.point_charge())
+            .collect::<Vec<_>>();
+        let n = basis.len();
 
-    let overlap = hermitian(n, |i, j| {
-        ContractedGaussian::overlap_int(&basis[i], &basis[j])
-    });
-    let kinetic = hermitian(n, |i, j| {
-        ContractedGaussian::kinetic_int(&basis[i], &basis[j])
-    });
-    let nuclear = hermitian(n, |i, j| {
-        ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
-    });
+        let overlap = hermitian(n, |i, j| {
+            ContractedGaussian::overlap_int(&basis[i], &basis[j])
+        });
+        let kinetic = hermitian(n, |i, j| {
+            ContractedGaussian::kinetic_int(&basis[i], &basis[j])
+        });
+        let nuclear = hermitian(n, |i, j| {
+            ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
+        });
 
-    let prim = GaussianPrimitive::new([0; 3], 1.0, 1.0);
-    println!(
-        "{:?}",
-        prim.coefficient.powi(2)
-            * GaussianPrimitive::_nuclear_attraction(
-                &prim,
-                &prim,
-                &Vector3::zeros(),
-                &Vector3::zeros(),
-                &PointCharge {
-                    position: Vector3::new(0.0, 1.0, 0.0),
-                    charge: 1.0
-                }
-            )
-    );
+        let prim = GaussianPrimitive::new([0; 3], 1.0, 1.0);
+        println!(
+            "{:?}",
+            prim.coefficient.powi(2)
+                * GaussianPrimitive::_nuclear_attraction(
+                    &prim,
+                    &prim,
+                    &Vector3::zeros(),
+                    &Vector3::zeros(),
+                    &PointCharge {
+                        position: Vector3::new(0.0, 1.0, 0.0),
+                        charge: 1.0
+                    }
+                )
+        );
 
-    print!("Overlap: {}", overlap);
-    print!("Kinetic: {}", kinetic);
-    print!("Nuclear: {}", nuclear);
+        print!("Overlap: {}", overlap);
+        print!("Kinetic: {}", kinetic);
+        print!("Nuclear: {}", nuclear);
+    }
 }
