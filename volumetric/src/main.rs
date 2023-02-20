@@ -21,9 +21,9 @@ use wgpu::{
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendState,
     BufferBinding, BufferBindingType, BufferUsages, Color, ColorTargetState, ColorWrites,
     CommandEncoderDescriptor, CompositeAlphaMode, Device, DeviceDescriptor, Extent3d, Features,
-    FilterMode, FragmentState, ImageDataLayout, Instance, Limits, LoadOp, Operations,
-    PipelineLayoutDescriptor, PresentMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
-    Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    FilterMode, FragmentState, ImageDataLayout, Instance, InstanceDescriptor, Limits, LoadOp,
+    Operations, PipelineLayoutDescriptor, PresentMode, PrimitiveState, PrimitiveTopology,
+    PushConstantRange, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
     RenderPipelineDescriptor, RequestAdapterOptions, SamplerBindingType, SamplerBorderColor,
     SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, Surface,
     SurfaceConfiguration, SurfaceError, Texture, TextureDescriptor, TextureDimension,
@@ -58,7 +58,7 @@ struct GpuAtom {
     pos: [f32; 3],
 }
 
-const N_VOXELS: usize = 225;
+const N_VOXELS: usize = 150;
 const BOX_SIZE: f64 = 20.0;
 
 struct State {
@@ -141,8 +141,11 @@ impl State {
     async fn new(window: &Window, molecule: &[Atom], hf_result: HartreeFockResult) -> Self {
         let size = window.inner_size();
 
-        let instance = Instance::new(Backends::VULKAN);
-        let surface = unsafe { instance.create_surface(window) };
+        let instance = Instance::new(InstanceDescriptor {
+            backends: Backends::VULKAN,
+            ..Default::default()
+        });
+        let surface = unsafe { instance.create_surface(window) }.expect("Failed to create surface");
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
                 power_preference: Default::default(),
@@ -171,7 +174,7 @@ impl State {
             .await
             .unwrap();
 
-        let supported_formats = surface.get_supported_formats(&adapter);
+        let supported_formats = surface.get_capabilities(&adapter).formats;
 
         info!(
             "{} supported formats: {:?}",
@@ -186,6 +189,7 @@ impl State {
             height: size.height,
             present_mode: PresentMode::Immediate,
             alpha_mode: CompositeAlphaMode::Auto,
+            view_formats: Default::default(),
         };
         surface.configure(&device, &config);
 
@@ -201,6 +205,7 @@ impl State {
             dimension: TextureDimension::D3,
             format: TextureFormat::R32Float,
             usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+            view_formats: Default::default(),
         });
         let density_view = density_texture.create_view(&TextureViewDescriptor::default());
         let density_sampler = device.create_sampler(&SamplerDescriptor {
@@ -549,8 +554,9 @@ async fn main() {
         .init();
 
     let args: Args = Args::parse();
-    let molecule = chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_STO_3G)
-        .expect("xyz file is invalid");
+    let molecule =
+        chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_6_31G_ST_ST)
+            .expect("xyz file is invalid");
 
     let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
 

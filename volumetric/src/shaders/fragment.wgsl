@@ -34,7 +34,7 @@ struct FragmentOutput {
 
 var<push_constant> uniforms: Uniforms;
 
-let iters: f32 = 350.0;
+const ITERS: f32 = 350.0;
 
 fn rayAABB(ro: vec3<f32>, rd: vec3<f32>, bmin: vec3<f32>, bmax: vec3<f32>) -> vec2<f32> {
     let inv_rd = 1.0 / rd;
@@ -120,7 +120,7 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
     var t_end = min(dist, intersection.y);
 
     let ray_distance = t_end - t_start;
-    let step_size = max(ray_distance, 1e-2) / iters;
+    let step_size = max(ray_distance, 1e-2) / ITERS;
 
     var acc_pos = 0.0;
     var acc_neg = 0.0;
@@ -143,8 +143,8 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
         acc_density += prob * step_size;
     }
 
-    let positive = acc_pos / (acc_pos + acc_neg);
-    let negative = acc_neg / (acc_pos + acc_neg);
+    let positive = acc_pos / (acc_pos + acc_neg + 0.01);
+    let negative = acc_neg / (acc_pos + acc_neg + 0.01);
 
     let waveCol = mix(vec3<f32>(min(1.0, negative), 0.0, 0.0), vec3<f32>(0.0, 0.0, min(1.0, positive)), positive / max(1e-6, positive + negative));
     let color = mix(col, waveCol, min(1.0, acc_density));
