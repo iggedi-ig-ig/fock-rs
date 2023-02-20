@@ -276,6 +276,7 @@ impl AtomType {
             Nitrogen => [0.1, 0.1, 0.9],
             Fluorine => [188.0 / 255.0, 166.0 / 255.0, 65.0 / 255.0],
             Iron => [0.8; 3],
+            Boron => [0.25, 0.9, 0.25],
             _ => [0.5; 3],
         }
     }
@@ -289,6 +290,7 @@ impl AtomType {
             "O" => Oxygen,
             "F" => Fluorine,
             "Fe" => Iron,
+            "B" => Boron,
             _ => panic!("not implemented yet"),
         }
     }
