@@ -74,15 +74,29 @@ impl ElectronTensor {
         // container for storing the resulting electron-electron repulsion integrals.
         let n_basis = basis.len();
         let n_integrals = (n_basis.pow(4) + 8 + 1) / 8;
-        let data = Arc::new(Mutex::new(HashMap::new()));
+        let mut diagonal = HashMap::with_capacity(n_integrals);
 
+        // compute diagonal first
+        (0..n_basis).for_each(|j| {
+            (j..n_basis).for_each(|i| {
+                let index = IntegralIndex::new((i, j, i, j));
+
+                if let Vacant(e) = diagonal.entry(index) {
+                    e.insert(ContractedGaussian::electron_repulsion_int(
+                        &basis[i], &basis[j], &basis[i], &basis[j],
+                    ));
+                }
+            })
+        });
+
+        let data = Arc::new(Mutex::new(diagonal.clone()));
         // Use parallel processing to compute electron-electron repulsion integrals for each
         // unique combination of four Gaussian functions in the basis set and store the result
         // in the hashmap.
         (0..n_basis).par_bridge().for_each(|w| {
             (w..n_basis).for_each(|z| {
                 (0..n_basis).for_each(|y| {
-                    (0..n_basis).for_each(|x| {
+                    (y..n_basis).for_each(|x| {
                         let index = IntegralIndex::new((x, y, z, w));
 
                         let mut lock = data.lock().unwrap();
@@ -93,9 +107,20 @@ impl ElectronTensor {
                             // drop lock so other threads can continue working
                             drop(lock);
 
-                            let integral = ContractedGaussian::electron_repulsion_int(
-                                &basis[x], &basis[y], &basis[z], &basis[w],
+                            let diagonal_index_ij = IntegralIndex::new((x, y, x, y));
+                            let diagonal_index_kl = IntegralIndex::new((z, w, z, w));
+
+                            let estimate = f64::sqrt(
+                                diagonal[&diagonal_index_ij] * diagonal[&diagonal_index_kl],
                             );
+
+                            let integral = if estimate > 1e-6 {
+                                ContractedGaussian::electron_repulsion_int(
+                                    &basis[x], &basis[y], &basis[z], &basis[w],
+                                )
+                            } else {
+                                0.0
+                            };
 
                             data.lock().unwrap().insert(index, integral);
                         }
