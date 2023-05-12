@@ -2,11 +2,13 @@ use crate::contracted_gaussian::ContractedGaussian;
 use crate::BasisFunction;
 use log::debug;
 use rayon::prelude::*;
+use rustc_hash::FxHashMap;
 use std::collections::hash_map::Entry::Vacant;
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
 use std::sync::{Arc, Mutex};
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 /// An integral index used in the two-electron integrals of a basis set.
 ///
@@ -31,6 +33,7 @@ impl IntegralIndex {
     }
 
     /// Returns the indices with the correct order, such that xy <= zw.
+    #[inline]
     pub fn correct_order(
         (x, y, z, w): (usize, usize, usize, usize),
     ) -> (usize, usize, usize, usize) {
@@ -74,7 +77,7 @@ impl ElectronTensor {
         // container for storing the resulting electron-electron repulsion integrals.
         let n_basis = basis.len();
         let n_integrals = (n_basis.pow(4) + 8 + 1) / 8;
-        let mut diagonal = HashMap::with_capacity(n_integrals);
+        let mut diagonal = HashMap::with_capacity_and_hasher(n_integrals, Default::default());
 
         // compute diagonal first
         (0..n_basis).for_each(|j| {
