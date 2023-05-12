@@ -100,9 +100,11 @@ impl State {
     fn create_wave_texture_data(n: usize, orbitals: &MolecularOrbitals) -> Vec<f32> {
         let grid = Arc::new(Mutex::new(vec![0.0; N_VOXELS.pow(3)]));
 
-        const N_GROUPS: usize = 12;
+        // this is something that should be optimized for, 16 works well enough for now
+        const N_GROUPS: usize = 16;
         let n_voxels = N_VOXELS.pow(3);
         (0..n_voxels).step_by(N_GROUPS).par_bridge().for_each(|i| {
+            let mut output = vec![Default::default(); N_GROUPS];
             for j in 0..N_GROUPS.min(n_voxels - i) {
                 let i = i + j;
 
@@ -110,10 +112,13 @@ impl State {
                 let y = (i / N_VOXELS) % N_VOXELS;
                 let z = i / N_VOXELS.pow(2);
 
-                grid.lock().unwrap()[i] = orbitals[n].evaluate(
+                output[j] = orbitals[n].evaluate(
                     &(Vector3::new(x, y, z).map(|x| x as f64 / N_VOXELS as f64 - 0.5) * BOX_SIZE),
                 ) as f32;
             }
+
+            grid.lock().unwrap()[i..i + N_GROUPS.min(n_voxels - i)]
+                .copy_from_slice(&output[..N_GROUPS.min(n_voxels - i)]);
         });
 
         Arc::try_unwrap(grid).unwrap().into_inner().unwrap()
