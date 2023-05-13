@@ -1,3 +1,6 @@
+use std::collections::VecDeque;
+
+use itertools::iproduct;
 use nalgebra::{DMatrix, DVector, SymmetricEigen};
 
 /// Constructs a Hermitian matrix of size `n` by evaluating the function `func` for all pairs of indices
@@ -66,4 +69,43 @@ pub fn sorted_eigs(matrix: DMatrix<f64>) -> (DMatrix<f64>, DVector<f64>) {
         DMatrix::from_columns(&vectors),
         DVector::from_column_slice(&values),
     )
+}
+
+/// Performs DIIS (direct inversion of iterative subspace), given a list of error vectors and fock matricies and returns a new fock matrix.
+pub fn diis(
+    error_vectors: &VecDeque<DMatrix<f64>>,
+    fock_matricies: &VecDeque<DMatrix<f64>>,
+) -> Option<DMatrix<f64>> {
+    assert_eq!(error_vectors.len(), fock_matricies.len());
+    let n = error_vectors.len();
+
+    let mut matrix = DMatrix::zeros(n + 1, n + 1);
+    // upper block
+    for (i, j) in iproduct!(0..n, 0..n) {
+        matrix[(i, j)] = error_vectors[i].dot(&error_vectors[j]);
+    }
+
+    // last row
+    for i in 0..n {
+        matrix[(n, i)] = -1.0;
+    }
+
+    // last col
+    for i in 0..n {
+        matrix[(i, n)] = -1.0;
+    }
+
+    // last entry
+    matrix[(n, n)] = 0.0;
+
+    let mut b = DVector::zeros(n + 1);
+    b[(n, 0)] = -1.0;
+
+    matrix.try_inverse().map(|inv| inv * b).map(|c| {
+        c.iter()
+            .enumerate()
+            .take(n)
+            .map(|(i, &x)| x * &fock_matricies[i])
+            .sum()
+    })
 }

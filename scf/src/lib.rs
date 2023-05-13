@@ -1,14 +1,14 @@
 pub mod molecular_orbitals;
 pub mod utils;
 
-use crate::molecular_orbitals::MolecularOrbitals;
+use crate::{molecular_orbitals::MolecularOrbitals, utils::diis};
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
 use log::{debug, info, warn};
 use nalgebra::{DMatrix, DVector};
-use std::time::Instant;
+use std::{collections::VecDeque, time::Instant};
 
 /// A struct containing the results of a Hartree-Fock calculation.
 ///
@@ -158,6 +158,9 @@ where
             })
         };
 
+        let mut previous_focks = VecDeque::new();
+        let mut previous_erros = VecDeque::new();
+
         let start = Instant::now();
         for iter in 0..=max_iters {
             let guess = utils::hermitian(n_basis, |i, j| {
@@ -169,8 +172,27 @@ where
             });
 
             let fock = &core_hamiltonian + &guess;
-            let fock_prime = &transform.transpose() * (&fock * &transform);
 
+            // DIIS
+            let error_estimate = &fock * &density * &overlap - &overlap * &density * &fock;
+
+            println!("{:0.05e}", error_estimate);
+            previous_erros.push_back(error_estimate.clone());
+            previous_focks.push_back(fock);
+
+            if previous_erros.len() > 8 {
+                let _ = previous_erros.pop_front();
+                let _ = previous_focks.pop_front();
+            }
+            
+            let fock = if previous_focks.len() < 2 {
+                previous_focks.back().unwrap().clone()
+            } else {
+                diis(&previous_erros, &previous_focks)
+                    .unwrap_or_else(|| previous_focks.back().unwrap().clone())
+            };
+
+            let fock_prime = &transform.transpose() * (&fock * &transform);
             let (coeffs_prime, orbital_energies) = utils::sorted_eigs(fock_prime);
             let coeffs = &transform * &coeffs_prime;
 
@@ -178,14 +200,10 @@ where
                 2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
-            let f: f64 = f64::exp(-3.0 * (iter as f64 / max_iters as f64));
+            let f: f64 = 1.0;
             let new_density = f * &new_density + (1.0 - f) * &density;
 
-            let density_rms = f64::sqrt(
-                density.zip_fold(&new_density, 0.0, |acc, new, old| acc + (new - old).powi(2))
-                    / n_basis as f64,
-            );
-
+            let density_rms = error_estimate.max();
             density = new_density;
 
             let electronic_energy = 0.5 * (&density * (2.0 * &core_hamiltonian + &guess)).trace();
