@@ -28,7 +28,11 @@ pub struct IntegralIndex {
 impl IntegralIndex {
     /// Creates a new integral index with the given indices.
     pub fn new(index: (usize, usize, usize, usize)) -> Self {
-        let (x, y, z, w) = Self::correct_order(index);
+        Self::new_unchecked(Self::correct_order(index))
+    }
+
+    /// Creates a new integral index, but doesn't correct their order
+    pub fn new_unchecked((x, y, z, w): (usize, usize, usize, usize)) -> Self {
         Self { x, y, z, w }
     }
 
@@ -82,7 +86,7 @@ impl ElectronTensor {
         // compute diagonal first
         (0..n_basis).for_each(|j| {
             (j..n_basis).for_each(|i| {
-                let index = IntegralIndex::new((i, j, i, j));
+                let index = IntegralIndex::new_unchecked((i, j, i, j));
 
                 if let Vacant(e) = diagonal.entry(index) {
                     e.insert(ContractedGaussian::electron_repulsion_int(
@@ -110,8 +114,10 @@ impl ElectronTensor {
                             // drop lock so other threads can continue working
                             drop(lock);
 
-                            let diagonal_index_ij = IntegralIndex::new((x, y, x, y));
-                            let diagonal_index_kl = IntegralIndex::new((z, w, z, w));
+                            let diagonal_index_ij =
+                                IntegralIndex::new_unchecked((index.x, index.y, index.x, index.y));
+                            let diagonal_index_kl =
+                                IntegralIndex::new_unchecked((index.z, index.w, index.z, index.w));
 
                             let estimate = f64::sqrt(
                                 diagonal[&diagonal_index_ij] * diagonal[&diagonal_index_kl],

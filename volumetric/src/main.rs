@@ -570,7 +570,7 @@ async fn main() {
 
     let args: Args = Args::parse();
     let molecule =
-        chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_6_31G_ST_ST)
+        chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_6_31G)
             .expect("xyz file is invalid");
 
     let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
