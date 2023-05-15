@@ -1,7 +1,7 @@
 pub mod molecular_orbitals;
 pub mod utils;
 
-use crate::{molecular_orbitals::MolecularOrbitals, utils::diis};
+use crate::molecular_orbitals::MolecularOrbitals;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
 use basis::BasisFunction;
@@ -174,23 +174,21 @@ where
             let fock = &core_hamiltonian + &guess;
 
             // DIIS
-            let error_estimate = &fock * &density * &overlap - &overlap * &density * &fock;
+            // e_i = FDS - SDF
+            let diis_error_estimate = &fock * &density * &overlap - &overlap * &density * &fock;
+            let error = diis_error_estimate.abs().max();
 
-            println!("{:0.05e}", error_estimate);
-            previous_erros.push_back(error_estimate.clone());
+            previous_erros.push_back(diis_error_estimate);
             previous_focks.push_back(fock);
 
             if previous_erros.len() > 8 {
                 let _ = previous_erros.pop_front();
                 let _ = previous_focks.pop_front();
             }
-            
-            let fock = if previous_focks.len() < 2 {
-                previous_focks.back().unwrap().clone()
-            } else {
-                diis(&previous_erros, &previous_focks)
-                    .unwrap_or_else(|| previous_focks.back().unwrap().clone())
-            };
+
+            let fock = utils::diis(&previous_erros, &previous_focks)
+                .unwrap_or_else(|| previous_focks.back().cloned().unwrap());
+            // DIIS end
 
             let fock_prime = &transform.transpose() * (&fock * &transform);
             let (coeffs_prime, orbital_energies) = utils::sorted_eigs(fock_prime);
@@ -200,14 +198,13 @@ where
                 2.0 * (0..n_electrons / 2).fold(0.0, |acc, k| acc + coeffs[(i, k)] * coeffs[(j, k)])
             });
 
-            let f: f64 = 1.0;
-            let new_density = f * &new_density + (1.0 - f) * &density;
+            const F: f64 = 1.0;
+            let new_density = F * &new_density + (1.0 - F) * &density;
 
-            let density_rms = error_estimate.max();
             density = new_density;
 
             let electronic_energy = 0.5 * (&density * (2.0 * &core_hamiltonian + &guess)).trace();
-            if density_rms < epsilon || iter == max_iters {
+            if error < epsilon || iter == max_iters {
                 let hf_energy = electronic_energy + nuclear_repulsion;
                 let energies = orbital_energies.into_iter().collect::<Vec<_>>();
                 let pad = (0..35).map(|_| '-').collect::<String>();
@@ -231,11 +228,11 @@ where
                     n_electrons,
                     n_basis,
                 });
-            } else if !density_rms.is_normal() {
+            } else if !error.is_normal() {
                 return None;
             } else {
                 debug!(
-                    "Iteration {iter}: density rms: {density_rms:0.5e}, energy: {:0.5}, Interp: {f:0.3}",
+                    "Iteration {iter}: max error (loss): {error:0.5e}, energy: {:0.5}, Interp: {F:0.3}",
                     electronic_energy + nuclear_repulsion
                 );
             }
