@@ -180,12 +180,12 @@ where
             previous_erros.push_back(error_estimate.clone());
             previous_focks.push_back(fock);
 
-            if previous_erros.len() > 8 {
+            if previous_erros.len() > 10 {
                 let _ = previous_erros.pop_front();
                 let _ = previous_focks.pop_front();
             }
             
-            let fock = if previous_focks.len() < 2 {
+            let fock = if previous_focks.len() < 5 {
                 previous_focks.back().unwrap().clone()
             } else {
                 diis(&previous_erros, &previous_focks)
