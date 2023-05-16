@@ -8,6 +8,12 @@ struct Atom {
     pos_z: f32,
 }
 
+struct HitInfo {
+    color: vec3<f32>,
+    normal: vec3<f32>,
+    min_t: f32,
+}
+
 struct AtomBuffer {
     size: i32,
     atoms: array<Atom>,
@@ -69,9 +75,10 @@ fn rot2D(a: f32) -> mat2x2<f32> {
     return mat2x2<f32>(c, -s, s, c);
 }
 
-fn atom(ro: vec3<f32>, rd:vec3<f32>) -> vec4<f32> {
+fn atom(ro: vec3<f32>, rd:vec3<f32>) -> HitInfo {
     var min_t = 1000.0;
     var color: vec3<f32> = vec3<f32>(0.0);
+    var hit_pos = vec3<f32>(0.0);
     for (var i = 0; i < atomBuf.size; i++) {
         let atom = atomBuf.atoms[i];
         let atom_pos = vec3<f32>(atom.pos_x, atom.pos_y, atom.pos_z);
@@ -83,13 +90,15 @@ fn atom(ro: vec3<f32>, rd:vec3<f32>) -> vec4<f32> {
             let t = intersection.x;
 
             if (t < min_t) {
+                hit_pos = atom_pos;
                 min_t = t;
                 color = atom_col;
             }
         }
     }
 
-    return vec4<f32>(color, min_t);
+    let normal = normalize(ro + rd * min_t - hit_pos);
+    return HitInfo(color, normal, min_t);
 }
 
 @fragment
@@ -108,8 +117,8 @@ fn main(@location(0) fragCoord: vec2<f32>) -> FragmentOutput {
 
     // render molecule
     let result = atom(ro, rd);
-    let col = result.rgb;
-    let dist = result.w;
+    let col = result.color * (dot(-result.normal, vec3<f32>(0.0, -1.0, 0.0)) * 0.3 + 0.7);
+    let dist = result.min_t;
 
     // bounding volume intersection
     let box_size = uniforms.box_size;
