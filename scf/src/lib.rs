@@ -1,7 +1,7 @@
 pub mod molecular_orbitals;
 pub mod utils;
 
-use crate::molecular_orbitals::MolecularOrbitals;
+use crate::{molecular_orbitals::MolecularOrbitals, utils::diis};
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
 use basis::BasisFunction;
@@ -183,13 +183,17 @@ where
             previous_erros.push_back(diis_error_estimate);
             previous_focks.push_back(fock);
 
-            if previous_erros.len() > 8 {
+            if previous_erros.len() > 10 {
                 let _ = previous_erros.pop_front();
                 let _ = previous_focks.pop_front();
             }
-
-            let fock = utils::diis(&previous_erros, &previous_focks)
-                .unwrap_or_else(|| previous_focks.back().cloned().unwrap());
+            
+            let fock = if previous_focks.len() < 5 {
+                previous_focks.back().unwrap().clone()
+            } else {
+                diis(&previous_erros, &previous_focks)
+                    .unwrap_or_else(|| previous_focks.back().unwrap().clone())
+            };
             // DIIS end
 
             let fock_prime = &transform.transpose() * (&fock * &transform);
