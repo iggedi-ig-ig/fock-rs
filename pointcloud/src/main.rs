@@ -97,7 +97,7 @@ fn main() -> Result<()> {
                     let lock = data_points.lock().unwrap();
 
                     let curr_n = n.lock().unwrap();
-                    if lock[(*curr_n)].len() < POINTS_PER_N {
+                    if lock[*curr_n].len() < POINTS_PER_N {
                         Some(*curr_n)
                     } else {
                         (0..n_basis).find(|n| lock[*n].len() < POINTS_PER_N)

@@ -1,7 +1,10 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, mem::MaybeUninit};
 
+use faer_evd::SymmetricEvdParams;
 use itertools::iproduct;
 use nalgebra::{DMatrix, DVector, SymmetricEigen};
+
+static mut BUFFER: [MaybeUninit<u8>; 2 << 18] = [MaybeUninit::uninit(); 2 << 18];
 
 /// Constructs a Hermitian matrix of size `n` by evaluating the function `func` for all pairs of indices
 /// `(i, j)` where `0 <= i < n` and `0 <= j < n`.
@@ -54,7 +57,31 @@ pub fn eigs(matrix: DMatrix<f64>) -> (DMatrix<f64>, DVector<f64>) {
 /// sorted by the eigenvalues in an ascending order, and `eigenvalues` is a `DVector<f64>` containing the eigenvalues of the input matrix,
 /// also sorted in ascending order.
 pub fn sorted_eigs(matrix: DMatrix<f64>) -> (DMatrix<f64>, DVector<f64>) {
-    let (eigenvectors, eigenvalues) = eigs(matrix);
+    let nrows = matrix.nrows();
+    let ncols = matrix.ncols();
+
+    let stack = dyn_stack::DynStack::new(unsafe { &mut BUFFER });
+    let matrix = faer_core::Mat::with_dims(nrows, ncols, |i, j| matrix[(i, j)]);
+    let mut s = faer_core::Mat::zeros(nrows, 1);
+    let mut u = faer_core::Mat::zeros(nrows, ncols);
+
+    faer_evd::compute_hermitian_evd(
+        matrix.as_ref(),
+        s.as_mut(),
+        Some(u.as_mut()),
+        1e-8,
+        1e-8,
+        faer_core::Parallelism::Rayon(4),
+        stack,
+        SymmetricEvdParams::default(),
+    );
+
+    let eigenvectors = DMatrix::from_columns(
+        &(0..ncols)
+            .map(|j| DVector::from_iterator(nrows, (0..nrows).map(|i| u.read(i, j))))
+            .collect::<Vec<_>>(),
+    );
+    let eigenvalues = DVector::from_iterator(ncols, (0..ncols).map(|i| s.read(i, 0)));
 
     let mut val_vec_pairs = eigenvalues
         .into_iter()

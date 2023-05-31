@@ -92,6 +92,8 @@ where
             .fold(0, |acc, atom| acc + atom.electron_count()) as i32
             - molecule_charge) as usize;
 
+        info!("Starting SCF iteration with {n_basis} basis functions");
+
         if n_electrons % 2 != 0 {
             warn!("restricted hartree fock only works properly if all orbitals are fully occupied, but the specified molecule has an uneven amount of electrons");
         }

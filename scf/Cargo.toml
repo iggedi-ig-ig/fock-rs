@@ -11,4 +11,7 @@ basis = { path = "../basis" }
 boys = { path = "../boys" }
 itertools = "0.10.5"
 nalgebra = "0.30.1"
+dyn-stack = "0.9.0"
+faer-core = "0.9.1"
+faer-evd = "0.9.1"
 log = "0.4.14"

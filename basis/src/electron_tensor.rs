@@ -1,14 +1,10 @@
 use crate::contracted_gaussian::ContractedGaussian;
 use crate::BasisFunction;
-use log::debug;
+use rayon::prelude::ParallelBridge;
 use rayon::prelude::*;
-use rustc_hash::FxHashMap;
-use std::collections::hash_map::Entry::Vacant;
 use std::hash::Hash;
 use std::ops::Index;
-use std::sync::{Arc, Mutex};
-
-type HashMap<K, V> = FxHashMap<K, V>;
+use std::sync::RwLock;
 
 /// An integral index used in the two-electron integrals of a basis set.
 ///
@@ -53,12 +49,18 @@ impl IntegralIndex {
             (z, w, x, y)
         }
     }
+
+    pub fn linear(&self, size: usize) -> usize {
+        self.w * size.pow(3) + self.z * size.pow(2) + self.y * size + self.x
+    }
 }
 
 /// An electron tensor representing electron-electron repulsion integrals between
 /// four contracted Gaussian functions in a given basis set.
 pub struct ElectronTensor {
-    data: HashMap<IntegralIndex, f64>,
+    data: Vec<f64>,
+    /// side length
+    size: usize,
 }
 
 impl ElectronTensor {
@@ -80,23 +82,24 @@ impl ElectronTensor {
         // Initialize variables for computing the total number of integrals and a thread-safe
         // container for storing the resulting electron-electron repulsion integrals.
         let n_basis = basis.len();
-        let n_integrals = (n_basis.pow(4) + 8 + 1) / 8;
-        let mut diagonal = HashMap::with_capacity_and_hasher(n_integrals, Default::default());
+        let data = (0..n_basis.pow(4))
+            .map(|_| RwLock::new(None))
+            .collect::<Vec<_>>();
 
         // compute diagonal first
         (0..n_basis).for_each(|j| {
             (j..n_basis).for_each(|i| {
                 let index = IntegralIndex::new_unchecked((i, j, i, j));
+                let linear = index.linear(n_basis);
 
-                if let Vacant(e) = diagonal.entry(index) {
-                    e.insert(ContractedGaussian::electron_repulsion_int(
+                let _ = data[linear].write().unwrap().get_or_insert_with(|| {
+                    ContractedGaussian::electron_repulsion_int(
                         &basis[i], &basis[j], &basis[i], &basis[j],
-                    ));
-                }
+                    )
+                });
             })
         });
 
-        let data = Arc::new(Mutex::new(diagonal.clone()));
         // Use parallel processing to compute electron-electron repulsion integrals for each
         // unique combination of four Gaussian functions in the basis set and store the result
         // in the hashmap.
@@ -105,23 +108,27 @@ impl ElectronTensor {
                 (0..n_basis).for_each(|y| {
                     (y..n_basis).for_each(|x| {
                         let index = IntegralIndex::new((x, y, z, w));
+                        let linear = index.linear(n_basis);
 
-                        let mut lock = data.lock().unwrap();
-                        if let Vacant(e) = lock.entry(index) {
-                            // insert something into hashmap to prevent double computation
-                            e.insert(f64::NAN);
+                        let diagonal_index_ij =
+                            IntegralIndex::new_unchecked((index.x, index.y, index.x, index.y));
+                        let diagonal_index_kl =
+                            IntegralIndex::new_unchecked((index.z, index.w, index.z, index.w));
 
-                            // drop lock so other threads can continue working
+                        let estimate = f64::sqrt(
+                            data[diagonal_index_ij.linear(n_basis)]
+                                .read()
+                                .unwrap()
+                                .expect("diagonal is set")
+                                * data[diagonal_index_kl.linear(n_basis)]
+                                    .read()
+                                    .unwrap()
+                                    .expect("diagonal is set"),
+                        );
+
+                        let lock = data[linear].read().unwrap();
+                        if lock.is_none() {
                             drop(lock);
-
-                            let diagonal_index_ij =
-                                IntegralIndex::new_unchecked((index.x, index.y, index.x, index.y));
-                            let diagonal_index_kl =
-                                IntegralIndex::new_unchecked((index.z, index.w, index.z, index.w));
-
-                            let estimate = f64::sqrt(
-                                diagonal[&diagonal_index_ij] * diagonal[&diagonal_index_kl],
-                            );
 
                             let integral = if estimate > 1e-6 {
                                 ContractedGaussian::electron_repulsion_int(
@@ -131,21 +138,21 @@ impl ElectronTensor {
                                 0.0
                             };
 
-                            data.lock().unwrap().insert(index, integral);
+                            *data[linear].write().unwrap() = Some(integral);
                         }
                     })
                 })
             });
-            let amount = data.lock().unwrap().len();
-            debug!(
-                "{amount} integrals computed, {:.1}% done",
-                (amount as f32 / n_integrals as f32).min(1.0) * 100.0
-            );
         });
 
         // Extract the hashmap from the thread-safe container and return an `ElectronTensor`.
         Self {
-            data: Arc::try_unwrap(data).unwrap().into_inner().unwrap(),
+            data: data
+                .into_iter()
+                .map(|x| x.into_inner().unwrap())
+                .map(|x| x.unwrap_or_default())
+                .collect(),
+            size: n_basis,
         }
     }
 }
@@ -154,7 +161,9 @@ impl Index<(usize, usize, usize, usize)> for ElectronTensor {
     type Output = f64;
 
     fn index(&self, index: (usize, usize, usize, usize)) -> &Self::Output {
-        &self.data[&IntegralIndex::new(index)]
+        let index = IntegralIndex::new(index);
+        let linear = index.linear(self.size);
+        &self.data[linear]
     }
 }
 
@@ -162,6 +171,7 @@ impl Index<IntegralIndex> for ElectronTensor {
     type Output = f64;
 
     fn index(&self, index: IntegralIndex) -> &Self::Output {
-        &self.data[&index]
+        let linear = index.linear(self.size);
+        &self.data[linear]
     }
 }
