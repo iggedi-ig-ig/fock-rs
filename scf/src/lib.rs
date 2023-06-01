@@ -163,12 +163,27 @@ where
         let mut previous_focks = VecDeque::new();
         let mut previous_erros = VecDeque::new();
 
+        // precompute multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)]
+        let mut electron_terms = vec![0.0; n_basis.pow(4)];
+        for j in 0..n_basis {
+            for i in 0..n_basis {
+                for x in 0..n_basis {
+                    for y in 0..n_basis {
+                        electron_terms[j * n_basis.pow(3) + i * n_basis.pow(2) + y * n_basis + x] =
+                            multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)];
+                    }
+                }
+            }
+        }
+
         let start = Instant::now();
         for iter in 0..=max_iters {
             let guess = utils::hermitian(n_basis, |i, j| {
-                (0..n_basis).fold(0.0, |acc, x| {
-                    acc + (0..n_basis).fold(0.0, |acc, y| {
-                        acc + density[(x, y)] * (multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)])
+                (0..n_basis).fold(0.0, |acc, y| {
+                    acc + (0..n_basis).fold(0.0, |acc, x| {
+                        acc + density[(x, y)]
+                            * electron_terms
+                                [j * n_basis.pow(3) + i * n_basis.pow(2) + y * n_basis + x]
                     })
                 })
             });
@@ -187,7 +202,7 @@ where
                 let _ = previous_erros.pop_front();
                 let _ = previous_focks.pop_front();
             }
-            
+
             let fock = if previous_focks.len() < 5 {
                 previous_focks.back().unwrap().clone()
             } else {
