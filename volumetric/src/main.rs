@@ -60,7 +60,7 @@ struct GpuAtom {
 }
 
 /// per side. So there are N_VOXELS^3 voxels in total
-const N_VOXELS: usize = 200;
+const N_VOXELS: usize = 100;
 const BOX_SIZE: f64 = 20.0;
 
 struct State {
@@ -572,7 +572,7 @@ async fn main() {
     let molecule = chemfiles::xyz::read_xyz_file(args.path, &basis_set::basis_sets::BASIS_6_31G)
         .expect("xyz file is invalid");
 
-    let hf_result = molecule.try_scf(100, 1e-6, 0).expect("scf failed");
+    let hf_result = molecule.try_scf(1000, 1e-6, 0).expect("scf failed");
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
