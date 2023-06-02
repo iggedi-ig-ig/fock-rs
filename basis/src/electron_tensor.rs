@@ -1,6 +1,6 @@
 use crate::contracted_gaussian::ContractedGaussian;
 use crate::BasisFunction;
-use rayon::prelude::ParallelBridge;
+use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::hash::Hash;
 use std::ops::Index;
@@ -103,11 +103,27 @@ impl ElectronTensor {
         // Use parallel processing to compute electron-electron repulsion integrals for each
         // unique combination of four Gaussian functions in the basis set and store the result
         // in the hashmap.
-        (0..n_basis).par_bridge().for_each(|w| {
+        let pb = ProgressBar::new(((n_basis.pow(2) + 1) / 2).pow(2) as u64)
+            .with_style(
+                ProgressStyle::with_template("{prefix:>12.cyan.bold} [{bar:57}] {pos}/{len}")
+                    .unwrap()
+                    .progress_chars("=> "),
+            )
+            .with_prefix("compute ERIs");
+        (0..n_basis).into_par_iter().for_each(|w| {
             (w..n_basis).for_each(|z| {
                 (0..n_basis).for_each(|y| {
                     (y..n_basis).for_each(|x| {
-                        let index = IntegralIndex::new((x, y, z, w));
+                        let xy = x * (x + 1) / 2 + y;
+                        let zw = z * (z + 1) / 2 + w;
+
+                        // we know that x, y and z, w are always in the correct order (x <= y and z <= w)
+                        // we thus only need to correct for hyper order
+                        let index = IntegralIndex::new_unchecked(if xy > zw {
+                            (x, y, z, w)
+                        } else {
+                            (z, w, x, y)
+                        });
                         let linear = index.linear(n_basis);
 
                         let diagonal_index_ij =
@@ -140,10 +156,13 @@ impl ElectronTensor {
 
                             *data[linear].write().unwrap() = Some(integral);
                         }
-                    })
+                    });
+
+                    pb.inc((n_basis - y) as u64);
                 })
             });
         });
+        pb.finish();
 
         // Extract the hashmap from the thread-safe container and return an `ElectronTensor`.
         Self {

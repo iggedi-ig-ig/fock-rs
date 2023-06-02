@@ -6,7 +6,7 @@ use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
-use log::{debug, info, warn};
+use log::{debug, info, trace, warn};
 use nalgebra::{DMatrix, DVector};
 use std::{collections::VecDeque, time::Instant};
 
@@ -117,15 +117,15 @@ where
         let overlap = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::overlap_int(&basis[i], &basis[j])
         });
-        debug!("overlap: {overlap:0.3}");
+        trace!("overlap: {overlap:0.3}");
         let kinetic = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::kinetic_int(&basis[i], &basis[j])
         });
-        debug!("kinetic: {kinetic:0.3}");
+        trace!("kinetic: {kinetic:0.3}");
         let nuclear = utils::hermitian(n_basis, |i, j| {
             ContractedGaussian::nuclear_attraction_int(&basis[i], &basis[j], &point_charges)
         });
-        debug!("nuclear attraction: {nuclear:0.3}");
+        trace!("nuclear attraction: {nuclear:0.3}");
 
         let start = Instant::now();
         let multi = ElectronTensor::from_basis(&basis);
@@ -198,7 +198,7 @@ where
             previous_erros.push_back(diis_error_estimate);
             previous_focks.push_back(fock);
 
-            if previous_erros.len() > 10 {
+            if previous_erros.len() > 16 {
                 let _ = previous_erros.pop_front();
                 let _ = previous_focks.pop_front();
             }
