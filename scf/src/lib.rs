@@ -175,6 +175,7 @@ where
                 }
             }
         }
+        drop(multi);
 
         let start = Instant::now();
         for iter in 0..=max_iters {

@@ -60,7 +60,7 @@ struct GpuAtom {
 }
 
 /// per side. So there are N_VOXELS^3 voxels in total
-const N_VOXELS: usize = 100;
+const N_VOXELS: usize = 200;
 const BOX_SIZE: f64 = 20.0;
 
 struct State {

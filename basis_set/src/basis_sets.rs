@@ -18,6 +18,7 @@ define_basis_sets! {
     BASIS_6_311G = "data/6-311G.json",
     BASIS_6_31_PP_G = "data/6-31++G.json",
     BASIS_6_31G_ST = "data/6-31G_st.json",
+    BASIS_DEF2_SVP = "data/def2-SV(P).json",
     BASIS_6_31G_ST_ST = "data/6-31G_st_st.json",
     BASIS_6_311_PP_G_ST_ST = "data/6-311++G_st_st.json"
 }
