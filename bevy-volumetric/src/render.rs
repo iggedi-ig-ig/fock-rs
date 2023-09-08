@@ -1,3 +1,4 @@
+use basis_set::periodic_table::AtomType;
 use futures_lite::future;
 use nalgebra::Vector3;
 use std::ops::Deref;
@@ -5,6 +6,7 @@ use std::ops::Deref;
 use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
+    utils::HashMap,
 };
 
 use crate::{hf::ConvergedScf, molecule::LoadedMolecule};
@@ -49,6 +51,7 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RenderSettings>()
             .init_resource::<DensityBuffer>()
+            .add_systems(Startup, setup)
             .add_systems(
                 Update,
                 (update_densities, handle_density_tasks, add_molecule_atoms),
@@ -56,13 +59,25 @@ impl Plugin for RenderPlugin {
     }
 }
 
+#[derive(Resource, Deref)]
+struct AtomMesh(Handle<Mesh>);
+
+#[derive(Resource, Deref, DerefMut)]
+struct AtomMaterial(HashMap<AtomType, Handle<StandardMaterial>>);
+
+fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    let atom_mesh = Mesh::from(shape::UVSphere::default());
+    commands.insert_resource(AtomMesh(meshes.add(atom_mesh)));
+}
+
 #[derive(Component)]
 struct AtomMarker;
 
 fn add_molecule_atoms(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut atom_material: ResMut<AtomMaterial>,
+    atom_mesh: Res<AtomMesh>,
     old_query: Query<Entity, With<AtomMarker>>,
     loaded_molecule: Res<LoadedMolecule>,
 ) {
@@ -79,11 +94,13 @@ fn add_molecule_atoms(
     };
 
     for atom in loaded_molecule {
-        let [red, green, blue] = atom.atom_type().color();
-        commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere::default())),
-                material: materials.add(StandardMaterial {
+        let mesh = (*atom_mesh).clone();
+        let material = atom_material
+            .entry(atom.atom_type())
+            .or_insert_with(|| {
+                let [red, green, blue] = atom.atom_type().color();
+
+                materials.add(StandardMaterial {
                     base_color: Color::Rgba {
                         red,
                         green,
@@ -91,7 +108,13 @@ fn add_molecule_atoms(
                         alpha: 1.0,
                     },
                     ..Default::default()
-                }),
+                })
+            })
+            .clone();
+        commands.spawn((
+            PbrBundle {
+                mesh,
+                material,
                 transform: Transform::from_xyz(
                     atom.position().x as _,
                     atom.position().y as _,
