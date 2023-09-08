@@ -7,7 +7,7 @@ use bevy::{
     tasks::{AsyncComputeTaskPool, Task},
 };
 
-use crate::hf::ConvergedScf;
+use crate::{hf::ConvergedScf, molecule::LoadedMolecule};
 
 #[derive(Resource, Default)]
 pub struct DensityBuffer(Vec<Option<Vec<f32>>>);
@@ -49,7 +49,59 @@ impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RenderSettings>()
             .init_resource::<DensityBuffer>()
-            .add_systems(Update, (update_densities, handle_density_tasks));
+            .add_systems(
+                Update,
+                (update_densities, handle_density_tasks, add_molecule_atoms),
+            );
+    }
+}
+
+#[derive(Component)]
+struct AtomMarker;
+
+fn add_molecule_atoms(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    old_query: Query<Entity, With<AtomMarker>>,
+    loaded_molecule: Res<LoadedMolecule>,
+) {
+    if !loaded_molecule.is_changed() {
+        return;
+    }
+
+    for entity in &old_query {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    let Some(loaded_molecule) = loaded_molecule.as_deref() else {
+        return;
+    };
+
+    for atom in loaded_molecule {
+        let [red, green, blue] = atom.atom_type().color();
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::UVSphere::default())),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::Rgba {
+                        red,
+                        green,
+                        blue,
+                        alpha: 1.0,
+                    },
+                    ..Default::default()
+                }),
+                transform: Transform::from_xyz(
+                    atom.position().x as _,
+                    atom.position().y as _,
+                    atom.position().z as _,
+                )
+                .with_scale(Vec3::ONE * 0.5),
+                ..Default::default()
+            },
+            AtomMarker,
+        ));
     }
 }
 
@@ -104,6 +156,10 @@ fn handle_density_tasks(
     for (entity, mut update_density_task) in &mut query {
         if let Some(buffer) = future::block_on(future::poll_once(&mut update_density_task.task)) {
             *density_buffer.level_mut(update_density_task.energy_level) = Some(buffer);
+            info!(
+                "computed density buffer for energy level {}",
+                update_density_task.energy_level
+            );
 
             commands.entity(entity).despawn_recursive();
         }

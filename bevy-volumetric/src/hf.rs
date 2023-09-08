@@ -97,6 +97,7 @@ fn poll_scf_tasks(
 ) {
     for (entity, mut task) in &mut tasks {
         if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
+            info!("done computing scf");
             match result {
                 Some(result) => {
                     solved_state.set(ScfConvergedState::Converged);
