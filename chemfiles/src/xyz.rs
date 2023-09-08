@@ -14,7 +14,7 @@ pub fn parse_xyz(s: impl AsRef<str>, basis_set: &BasisSet) -> Result<Vec<Atom>> 
     let content = s.as_ref();
     let pattern = Regex::new(r"\s*(\w+)\s+([+\-0-9.]+)\s+([+\-0-9.]+)\s+([0-9.+\-]+).*\b")?;
     let mut atoms = Vec::new();
-    for cap in pattern.captures_iter(&content) {
+    for cap in pattern.captures_iter(content) {
         // multiply by 1.89 to convert to correct unit
         let x = cap[2].parse::<f64>()? * 1.89;
         let y = cap[3].parse::<f64>()? * 1.89;
