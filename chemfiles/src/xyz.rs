@@ -10,14 +10,9 @@ use std::path::Path;
 
 /// XYZ File format
 
-pub fn read_xyz_file<P: AsRef<Path>>(path: P, basis_set: &BasisSet) -> Result<Vec<Atom>> {
+pub fn parse_xyz(s: impl AsRef<str>, basis_set: &BasisSet) -> Result<Vec<Atom>> {
+    let content = s.as_ref();
     let pattern = Regex::new(r"\s*(\w+)\s+([+\-0-9.]+)\s+([+\-0-9.]+)\s+([0-9.+\-]+).*\b")?;
-
-    let mut file = File::open(path)?;
-    let mut content = String::new();
-
-    file.read_to_string(&mut content)?;
-
     let mut atoms = Vec::new();
     for cap in pattern.captures_iter(&content) {
         // multiply by 1.89 to convert to correct unit
@@ -29,4 +24,12 @@ pub fn read_xyz_file<P: AsRef<Path>>(path: P, basis_set: &BasisSet) -> Result<Ve
     }
 
     Ok(atoms)
+}
+
+pub fn read_xyz_file<P: AsRef<Path>>(path: P, basis_set: &BasisSet) -> Result<Vec<Atom>> {
+    let mut file = File::open(path)?;
+    let mut content = String::new();
+
+    file.read_to_string(&mut content)?;
+    parse_xyz(content, basis_set)
 }

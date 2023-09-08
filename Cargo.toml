@@ -6,7 +6,8 @@ members = [
     "basis_set",
     "pointcloud",
     "chemfiles",
-    "volumetric"
+    "volumetric",
+    "bevy-volumetric",
 ]
 resolver = "2"
 

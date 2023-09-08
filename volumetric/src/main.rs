@@ -163,7 +163,7 @@ impl State {
         let surface = unsafe { instance.create_surface(window) }.expect("Failed to create surface");
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
-                power_preference: Default::default(),
+                power_preference: wgpu::PowerPreference::HighPerformance,
                 force_fallback_adapter: false,
                 compatible_surface: Some(&surface),
             })
