@@ -1,11 +1,15 @@
-use std::ops::Deref;
+use futures_lite::future;
 use nalgebra::Vector3;
+use std::ops::Deref;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 
-use crate::scf::ConvergedScf;
+use crate::hf::ConvergedScf;
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct DensityBuffer(Vec<Option<Vec<f32>>>);
 
 impl DensityBuffer {
@@ -43,32 +47,65 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(RenderSettings::default())
-            .add_systems(Update, update_densities);
+        app.init_resource::<RenderSettings>()
+            .init_resource::<DensityBuffer>()
+            .add_systems(Update, (update_densities, handle_density_tasks));
     }
 }
 
+#[derive(Component)]
+struct UpdateDensityTask {
+    energy_level: usize,
+    task: Task<Vec<f32>>,
+}
+
 fn update_densities(
-    mut density_texture: ResMut<DensityBuffer>,
+    mut commands: Commands,
+    mut density_buffer: ResMut<DensityBuffer>,
     converged: Res<ConvergedScf>,
-    settings: Res<RenderSettings>
+    settings: Res<RenderSettings>,
 ) {
-    // TODO: choose energy level
-    let energy_level= 0;
+    let pool = AsyncComputeTaskPool::get();
+
     if converged.is_changed() {
         let ConvergedScf::Solved(result) = converged.deref() else {
-           return; 
+           return;
         };
 
+        *density_buffer = DensityBuffer::allocate(result.n_basis);
         let res = settings.density_resolution;
-        let output = density_texture.allocate_level(energy_level);
-        for (i, entry) in output.iter_mut().enumerate() {
-            let x = i % res;
-            let y = (i / res) % res;
-            let z = i / res.pow(2);
 
-            let at = Vector3::new(x, y, z).map(|x| x as f64 / res as f64 - 0.5);
-            *entry = result.orbitals[energy_level].evaluate(&at) as f32;
+        for energy_level in 0..result.n_basis {
+            let orbitals = result.orbitals.clone();
+            commands.spawn(UpdateDensityTask {
+                energy_level,
+                task: pool.spawn(async move {
+                    let mut output = vec![0.0; res.pow(3)];
+                    for (i, entry) in output.iter_mut().enumerate() {
+                        let x = i % res;
+                        let y = (i / res) % res;
+                        let z = i / res.pow(2);
+
+                        let at = Vector3::new(x, y, z).map(|x| x as f64 / res as f64 - 0.5);
+                        *entry = orbitals[energy_level].evaluate(&at) as f32;
+                    }
+                    output
+                }),
+            });
+        }
+    }
+}
+
+fn handle_density_tasks(
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut UpdateDensityTask)>,
+    mut density_buffer: ResMut<DensityBuffer>,
+) {
+    for (entity, mut update_density_task) in &mut query {
+        if let Some(buffer) = future::block_on(future::poll_once(&mut update_density_task.task)) {
+            *density_buffer.level_mut(update_density_task.energy_level) = Some(buffer);
+
+            commands.entity(entity).despawn_recursive();
         }
     }
 }

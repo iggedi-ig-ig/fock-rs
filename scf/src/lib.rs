@@ -23,6 +23,7 @@ use std::{collections::VecDeque, time::Instant};
 /// * `iterations`: `usize` - Number of iterations used to obtain the result.
 /// * `n_electrons`: `usize` - Number of electrons in the system.
 /// * `n_basis`: `usize` - Number of basis functions used in the calculation.
+#[derive(Clone)]
 pub struct HartreeFockResult {
     pub orbitals: MolecularOrbitals,
     pub orbital_energies: DVector<f64>,

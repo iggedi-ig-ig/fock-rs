@@ -3,10 +3,12 @@ use basis::BasisFunction;
 use nalgebra::{DMatrix, DVector, Vector3};
 use std::ops::Index;
 
+#[derive(Clone)]
 pub struct MolecularOrbitals {
     molecular_orbitals: Vec<MolecularOrbital>,
 }
 
+#[derive(Clone)]
 pub struct MolecularOrbital {
     basis_functions: Vec<ContractedGaussian>,
     coefficients: DVector<f64>,

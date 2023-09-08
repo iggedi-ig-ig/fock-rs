@@ -7,9 +7,9 @@ use scf::{HartreeFockResult, SelfConsistentField};
 
 use crate::molecule::LoadedMolecule;
 
-pub struct ScfPlugin;
+pub struct HfPlugin;
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub enum ConvergedScf {
     #[default]
     Unsolved,
@@ -18,9 +18,9 @@ pub enum ConvergedScf {
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, States)]
-pub enum SolvedState {
+pub enum ScfConvergedState {
     Solving,
-    Solved,
+    Converged,
     #[default]
     Failed,
 }
@@ -54,16 +54,18 @@ impl Default for ScfSettings {
     }
 }
 
-impl Plugin for ScfPlugin {
+impl Plugin for HfPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, (solve_scf, poll_scf_tasks))
-            .insert_resource(ScfSettings::default());
+            .init_resource::<ScfSettings>()
+            .init_resource::<ConvergedScf>()
+            .add_state::<ScfConvergedState>();
     }
 }
 
 fn solve_scf(
     mut commands: Commands,
-    mut solved_state: ResMut<NextState<SolvedState>>,
+    mut solved_state: ResMut<NextState<ScfConvergedState>>,
     mut converged: ResMut<ConvergedScf>,
     molecule: Res<LoadedMolecule>,
     settings: Res<ScfSettings>,
@@ -72,7 +74,7 @@ fn solve_scf(
 
     if molecule.is_changed() {
         let Some(molecule) = &**molecule else {return;};
-        solved_state.set(SolvedState::Solving);
+        solved_state.set(ScfConvergedState::Solving);
         *converged = ConvergedScf::Solving;
 
         let molecule = molecule.clone();
@@ -90,18 +92,18 @@ fn solve_scf(
 fn poll_scf_tasks(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut ScfTask)>,
-    mut solved_state: ResMut<NextState<SolvedState>>,
+    mut solved_state: ResMut<NextState<ScfConvergedState>>,
     mut converged: ResMut<ConvergedScf>,
 ) {
     for (entity, mut task) in &mut tasks {
         if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
             match result {
                 Some(result) => {
-                    solved_state.set(SolvedState::Solved);
+                    solved_state.set(ScfConvergedState::Converged);
                     *converged = ConvergedScf::Solved(result);
                 }
                 None => {
-                    solved_state.set(SolvedState::Failed);
+                    solved_state.set(ScfConvergedState::Failed);
                     *converged = ConvergedScf::Unsolved;
                 }
             }
