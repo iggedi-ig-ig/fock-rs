@@ -62,12 +62,13 @@ impl Plugin for RenderPlugin {
 #[derive(Resource, Deref)]
 struct AtomMesh(Handle<Mesh>);
 
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut, Default)]
 struct AtomMaterial(HashMap<AtomType, Handle<StandardMaterial>>);
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     let atom_mesh = Mesh::from(shape::UVSphere::default());
     commands.insert_resource(AtomMesh(meshes.add(atom_mesh)));
+    commands.init_resource::<AtomMaterial>();
 }
 
 #[derive(Component)]
