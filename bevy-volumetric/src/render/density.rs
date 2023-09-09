@@ -30,9 +30,9 @@ impl DensityBuffer {
     }
 }
 
-pub struct DensityBufferPlugin;
+pub struct ComputeDensityPlugin;
 
-impl Plugin for DensityBufferPlugin {
+impl Plugin for ComputeDensityPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DensityBuffer>()
             .add_systems(Update, (update_densities, handle_density_tasks));

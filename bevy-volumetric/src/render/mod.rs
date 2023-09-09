@@ -1,7 +1,12 @@
-mod density;
-mod molecule;
+pub mod density;
+pub mod molecule;
+pub mod volume;
 
 use bevy::prelude::*;
+
+use self::{
+    density::ComputeDensityPlugin, molecule::MoleculeRenderPlugin, volume::VolumetricPlugin,
+};
 
 #[derive(Resource)]
 pub struct RenderSettings {
@@ -22,6 +27,10 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RenderSettings>();
+        app.init_resource::<RenderSettings>().add_plugins((
+            MoleculeRenderPlugin,
+            ComputeDensityPlugin,
+            VolumetricPlugin,
+        ));
     }
 }
