@@ -44,12 +44,15 @@ var<uniform> settings: RenderSettings;
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Chromatic aberration strength
     let offset_strength = settings.density_scale / f32(settings.density_resolution);
+    
+    let test = textureLoad(density_texture, vec3<i32>(0)).r;
 
-    // Sample each color channel with an arbitrary shift
-    return vec4<f32>(
-        textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(offset_strength, -offset_strength)).r,
-        textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(-offset_strength, 0.0)).g,
-        textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(0.0, offset_strength)).b,
-        1.0
-    );
+    return vec4<f32>(vec3<f32>(mix(vec3<f32>(test), textureSample(screen_texture, texture_sampler, in.uv).rgb, vec3<f32>(0.5))), 1.0); 
+    // // Sample each color channel with an arbitrary shift
+    // return vec4<f32>(
+    //     textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(offset_strength, -offset_strength)).r,
+    //     textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(-offset_strength, 0.0)).g,
+    //     textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(0.0, offset_strength)).b,
+    //     1.0
+    // );
 }

@@ -2,7 +2,10 @@ use std::{ops::Deref, time::Instant};
 
 use bevy::{
     prelude::*,
-    render::render_resource::Texture,
+    render::{
+        extract_resource::{ExtractResource, ExtractResourcePlugin},
+        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
+    },
     tasks::{AsyncComputeTaskPool, Task},
 };
 use futures_lite::future;
@@ -40,7 +43,12 @@ pub struct ComputeDensityPlugin;
 impl Plugin for ComputeDensityPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DensityBuffer>()
-            .add_systems(Update, (update_densities, handle_density_tasks));
+            .init_resource::<Density3dTexture>()
+            .add_plugins(ExtractResourcePlugin::<Density3dTexture>::default())
+            .add_systems(
+                Update,
+                (update_densities, handle_density_tasks, update_3d_texture),
+            );
     }
 }
 
@@ -109,19 +117,32 @@ fn handle_density_tasks(
     }
 }
 
-#[derive(Resource, Deref)]
+#[derive(Resource, ExtractResource, Deref, Default, DerefMut, Clone)]
 pub struct Density3dTexture(Handle<Image>);
 
 fn update_3d_texture(
     mut density_texture: ResMut<Density3dTexture>,
     mut images: ResMut<Assets<Image>>,
+    render_settings: Query<&RenderSettings>,
     density_buffer: Res<DensityBuffer>,
 ) {
     if density_buffer.is_changed() {
-        if let Some(_) = images.get(&**density_texture) {
-            images.remove(**density_texture);
+        let render_settings = render_settings.single();
+        if images.contains(&density_texture.0) {
+            images.remove(density_texture.0.clone());
         }
 
-        
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: render_settings.density_resolution,
+                height: render_settings.density_resolution,
+                depth_or_array_layers: render_settings.density_resolution,
+            },
+            TextureDimension::D3,
+            &(0.0_f32).to_be_bytes(),
+            TextureFormat::R32Float,
+        );
+        image.texture_descriptor.usage = TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING;
+        **density_texture = images.add(image);
     }
 }

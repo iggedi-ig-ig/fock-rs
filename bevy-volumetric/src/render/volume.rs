@@ -4,6 +4,7 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ComponentUniforms, ExtractComponentPlugin, UniformComponentPlugin},
+        render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
@@ -13,7 +14,7 @@ use bevy::{
             ColorTargetState, ColorWrites, FragmentState, MultisampleState, Operations,
             PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
             RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-            TextureFormat, TextureSampleType, TextureViewDimension,
+            StorageTextureAccess, TextureFormat, TextureSampleType, TextureViewDimension,
         },
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
@@ -22,7 +23,7 @@ use bevy::{
     },
 };
 
-use super::RenderSettings;
+use super::{density::Density3dTexture, RenderSettings};
 
 /// It is generally encouraged to set up post processing effects as a plugin
 pub struct VolumeRenderPlugin;
@@ -142,6 +143,10 @@ impl ViewNode for PostProcessNode {
             return Ok(());
         };
 
+        let density_texture = world.resource::<Density3dTexture>();
+        let render_assets = world.resource::<RenderAssets<Image>>();
+        let density_texture = render_assets.get(&**density_texture).unwrap();
+
         // This will start a new "post process write", obtaining two texture
         // views from the view target - a `source` and a `destination`.
         // `source` is the "current" main texture and you _must_ write into
@@ -195,7 +200,7 @@ impl ViewNode for PostProcessNode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: BindingResource::TextureView(()),
+                            resource: BindingResource::TextureView(&density_texture.texture_view),
                         },
                         BindGroupEntry {
                             binding: 1,
@@ -290,10 +295,10 @@ impl FromWorld for PostProcessPipeline {
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: true },
+                    ty: BindingType::StorageTexture {
+                        access: StorageTextureAccess::ReadOnly,
+                        format: TextureFormat::R32Float,
                         view_dimension: TextureViewDimension::D3,
-                        multisampled: false,
                     },
                     count: None,
                 },
