@@ -28,6 +28,10 @@ impl DensityBuffer {
     pub fn level_mut(&mut self, n: usize) -> &mut Option<Vec<f32>> {
         &mut self.0[n]
     }
+
+    pub fn level(&self, n: usize) -> Option<&[f32]> {
+        self.0[n].as_deref()
+    }
 }
 
 pub struct ComputeDensityPlugin;

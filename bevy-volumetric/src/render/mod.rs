@@ -5,11 +5,12 @@ pub mod volume;
 use bevy::prelude::*;
 
 use self::{
-    density::ComputeDensityPlugin, molecule::MoleculeRenderPlugin, volume::VolumetricPlugin,
+    density::ComputeDensityPlugin, molecule::MoleculeRenderPlugin, volume::VolumeRenderPlugin,
 };
 
 #[derive(Resource)]
 pub struct RenderSettings {
+    pub current_energy_level: usize,
     pub density_resolution: usize,
     pub density_scale: f32,
 }
@@ -17,6 +18,7 @@ pub struct RenderSettings {
 impl Default for RenderSettings {
     fn default() -> Self {
         Self {
+            current_energy_level: 0,
             density_resolution: 200,
             density_scale: 15.0,
         }
@@ -30,7 +32,7 @@ impl Plugin for RenderPlugin {
         app.init_resource::<RenderSettings>().add_plugins((
             MoleculeRenderPlugin,
             ComputeDensityPlugin,
-            VolumetricPlugin,
+            VolumeRenderPlugin,
         ));
     }
 }

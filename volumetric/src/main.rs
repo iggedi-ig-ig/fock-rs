@@ -104,7 +104,7 @@ impl State {
         const N_GROUPS: usize = 16;
         let n_voxels = N_VOXELS.pow(3);
         (0..n_voxels).step_by(N_GROUPS).par_bridge().for_each(|i| {
-            let mut output = vec![Default::default(); N_GROUPS];
+            let mut output = [Default::default(); N_GROUPS];
             #[allow(clippy::needless_range_loop)]
             for j in 0..N_GROUPS.min(n_voxels - i) {
                 let i = i + j;
