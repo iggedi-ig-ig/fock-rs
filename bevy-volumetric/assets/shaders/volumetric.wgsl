@@ -26,20 +26,19 @@
 var screen_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var texture_sampler: sampler;
-struct PostProcessSettings {
-    intensity: f32,
-#ifdef SIXTEEN_BYTE_ALIGNMENT
-    // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: vec3<f32>
-#endif
+struct RenderSettings {
+    energy_level: u32,
+    density_resolution: u32,
+    density_scale: f32,
 }
+
 @group(0) @binding(2)
-var<uniform> settings: PostProcessSettings;
+var<uniform> settings: RenderSettings;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     // Chromatic aberration strength
-    let offset_strength = settings.intensity;
+    let offset_strength = settings.density_scale / f32(settings.density_resolution);
 
     // Sample each color channel with an arbitrary shift
     return vec4<f32>(

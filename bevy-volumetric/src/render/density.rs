@@ -54,8 +54,9 @@ fn update_densities(
     mut commands: Commands,
     mut density_buffer: ResMut<DensityBuffer>,
     converged: Res<ConvergedScf>,
-    settings: Res<RenderSettings>,
+    settings: Query<&RenderSettings>,
 ) {
+    let settings = settings.single();
     let pool = AsyncComputeTaskPool::get();
 
     if converged.is_changed() {
@@ -64,7 +65,7 @@ fn update_densities(
         };
 
         *density_buffer = DensityBuffer::allocate(result.n_basis);
-        let res = settings.density_resolution;
+        let res = settings.density_resolution as usize;
 
         for energy_level in 0..result.n_basis {
             let orbitals = result.orbitals.clone();

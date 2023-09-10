@@ -2,16 +2,19 @@ pub mod density;
 pub mod molecule;
 pub mod volume;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::{extract_component::ExtractComponent, render_resource::ShaderType},
+};
 
 use self::{
     density::ComputeDensityPlugin, molecule::MoleculeRenderPlugin, volume::VolumeRenderPlugin,
 };
 
-#[derive(Resource)]
+#[derive(Component, Clone, Copy, ExtractComponent, ShaderType)]
 pub struct RenderSettings {
-    pub current_energy_level: usize,
-    pub density_resolution: usize,
+    pub current_energy_level: u32,
+    pub density_resolution: u32,
     pub density_scale: f32,
 }
 
@@ -29,10 +32,15 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RenderSettings>().add_plugins((
+        app.add_plugins((
             MoleculeRenderPlugin,
             ComputeDensityPlugin,
             VolumeRenderPlugin,
-        ));
+        ))
+        .add_systems(Startup, setup);
     }
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(RenderSettings::default());
 }

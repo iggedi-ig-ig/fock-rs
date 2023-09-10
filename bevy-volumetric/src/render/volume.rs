@@ -3,9 +3,7 @@ use bevy::{
     ecs::query::QueryItem,
     prelude::*,
     render::{
-        extract_component::{
-            ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
-        },
+        extract_component::{ComponentUniforms, ExtractComponentPlugin, UniformComponentPlugin},
         render_graph::{
             NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner,
         },
@@ -15,7 +13,7 @@ use bevy::{
             ColorTargetState, ColorWrites, FragmentState, MultisampleState, Operations,
             PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
             RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-            ShaderType, TextureFormat, TextureSampleType, TextureViewDimension,
+            TextureFormat, TextureSampleType, TextureViewDimension,
         },
         renderer::{RenderContext, RenderDevice},
         texture::BevyDefault,
@@ -23,6 +21,8 @@ use bevy::{
         RenderApp,
     },
 };
+
+use super::RenderSettings;
 
 /// It is generally encouraged to set up post processing effects as a plugin
 pub struct VolumeRenderPlugin;
@@ -34,16 +34,14 @@ impl Plugin for VolumeRenderPlugin {
             // be extracted to the render world every frame.
             // This makes it possible to control the effect from the main world.
             // This plugin will take care of extracting it automatically.
-            // It's important to derive [`ExtractComponent`] on [`PostProcessingSettings`]
+            // It's important to derive [`ExtractComponent`] on [`RenderSettings`]
             // for this plugin to work correctly.
-            ExtractComponentPlugin::<PostProcessSettings>::default(),
+            ExtractComponentPlugin::<RenderSettings>::default(),
             // The settings will also be the data used in the shader.
             // This plugin will prepare the component for the GPU by creating a uniform buffer
             // and writing the data to that buffer every frame.
-            UniformComponentPlugin::<PostProcessSettings>::default(),
-        ))
-        .add_systems(Startup, setup)
-        .add_systems(Update, update_settings);
+            UniformComponentPlugin::<RenderSettings>::default(),
+        ));
 
         // We need to get the render app from the main app
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -139,7 +137,7 @@ impl ViewNode for PostProcessNode {
         };
 
         // Get the settings uniform binding
-        let settings_uniforms = world.resource::<ComponentUniforms<PostProcessSettings>>();
+        let settings_uniforms = world.resource::<ComponentUniforms<RenderSettings>>();
         let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
             return Ok(());
         };
@@ -249,7 +247,7 @@ impl FromWorld for PostProcessPipeline {
                     ty: BindingType::Buffer {
                         ty: bevy::render::render_resource::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
-                        min_binding_size: Some(PostProcessSettings::min_size()),
+                        min_binding_size: None,
                     },
                     count: None,
                 },
@@ -297,41 +295,5 @@ impl FromWorld for PostProcessPipeline {
             sampler,
             pipeline_id,
         }
-    }
-}
-
-// This is the component that will get passed to the shader
-#[derive(Component, Default, Clone, Copy, ExtractComponent, ShaderType)]
-struct PostProcessSettings {
-    intensity: f32,
-    // WebGL2 structs must be 16 byte aligned.
-    #[cfg(feature = "webgl2")]
-    _webgl2_padding: Vec3,
-}
-
-/// Set up a simple 3D scene
-fn setup(mut commands: Commands) {
-    // camera
-    commands.spawn((
-        // Add the setting to the camera.
-        // This component is also used to determine on which camera to run the post processing effect.
-        PostProcessSettings { intensity: 0.02 },
-    ));
-}
-
-// Change the intensity over time to show that the effect is controlled from the main world
-fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time>) {
-    for mut setting in &mut settings {
-        let mut intensity = time.elapsed_seconds().sin();
-        // Make it loop periodically
-        intensity = intensity.sin();
-        // Remap it to 0..1 because the intensity can't be negative
-        intensity = intensity * 0.5 + 0.5;
-        // Scale it to a more reasonable level
-        intensity *= 0.015;
-
-        // Set the intensity.
-        // This will then be extracted to the render world and uploaded to the gpu automatically by the [`UniformComponentPlugin`]
-        setting.intensity = intensity;
     }
 }
