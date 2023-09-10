@@ -26,6 +26,11 @@
 var screen_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var texture_sampler: sampler;
+@group(1) @binding(0)
+var density_texture: texture_storage_3d<r32float, read>;
+@group(1) @binding(1)
+var density_sampler: sampler;
+
 struct RenderSettings {
     energy_level: u32,
     density_resolution: u32,

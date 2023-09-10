@@ -158,30 +158,53 @@ impl ViewNode for PostProcessNode {
         // The reason it doesn't work is because each post_process_write will alternate the source/destination.
         // The only way to have the correct source/destination for the bind_group
         // is to make sure you get it during the node execution.
-        let bind_group = render_context
-            .render_device()
-            .create_bind_group(&BindGroupDescriptor {
-                label: Some("post_process_bind_group"),
-                layout: &post_process_pipeline.layout,
-                // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        // Make sure to use the source view
-                        resource: BindingResource::TextureView(post_process.source),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        // Use the sampler created for the pipeline
-                        resource: BindingResource::Sampler(&post_process_pipeline.sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        // Set the settings binding
-                        resource: settings_binding.clone(),
-                    },
-                ],
-            });
+        let screen_bind_group =
+            render_context
+                .render_device()
+                .create_bind_group(&BindGroupDescriptor {
+                    label: Some("volumetric_screen_bind_group"),
+                    layout: &post_process_pipeline.screen_layout,
+                    // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
+                    entries: &[
+                        BindGroupEntry {
+                            binding: 0,
+                            // Make sure to use the source view
+                            resource: BindingResource::TextureView(post_process.source),
+                        },
+                        BindGroupEntry {
+                            binding: 1,
+                            // Use the sampler created for the pipeline
+                            resource: BindingResource::Sampler(
+                                &post_process_pipeline.screen_sampler,
+                            ),
+                        },
+                        BindGroupEntry {
+                            binding: 2,
+                            // Set the settings binding
+                            resource: settings_binding.clone(),
+                        },
+                    ],
+                });
+
+        let density_bind_group =
+            render_context
+                .render_device()
+                .create_bind_group(&BindGroupDescriptor {
+                    label: Some("volumetric_density_bind_group"),
+                    layout: &post_process_pipeline.density_layout,
+                    entries: &[
+                        BindGroupEntry {
+                            binding: 0,
+                            resource: BindingResource::TextureView(()),
+                        },
+                        BindGroupEntry {
+                            binding: 1,
+                            resource: BindingResource::Sampler(
+                                &post_process_pipeline.density_sampler,
+                            ),
+                        },
+                    ],
+                });
 
         // Begin the render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
@@ -199,7 +222,8 @@ impl ViewNode for PostProcessNode {
         // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
         // using the pipeline/bind_group created above
         render_pass.set_render_pipeline(pipeline);
-        render_pass.set_bind_group(0, &bind_group, &[]);
+        render_pass.set_bind_group(0, &screen_bind_group, &[]);
+        render_pass.set_bind_group(1, &density_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
 
         Ok(())
@@ -209,8 +233,10 @@ impl ViewNode for PostProcessNode {
 // This contains global data used by the render pipeline. This will be created once on startup.
 #[derive(Resource)]
 struct PostProcessPipeline {
-    layout: BindGroupLayout,
-    sampler: Sampler,
+    screen_layout: BindGroupLayout,
+    screen_sampler: Sampler,
+    density_layout: BindGroupLayout,
+    density_sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
 }
 
@@ -219,7 +245,7 @@ impl FromWorld for PostProcessPipeline {
         let render_device = world.resource::<RenderDevice>();
 
         // We need to define the bind group layout used for our pipeline
-        let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let screen_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("post_process_bind_group_layout"),
             entries: &[
                 // The screen texture
@@ -255,7 +281,30 @@ impl FromWorld for PostProcessPipeline {
         });
 
         // We can create the sampler here since it won't change at runtime and doesn't depend on the view
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let screen_sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let density_sampler = render_device.create_sampler(&SamplerDescriptor::default());
+
+        let density_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D3,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
 
         // Get the shader handle
         let shader = world
@@ -267,7 +316,7 @@ impl FromWorld for PostProcessPipeline {
             // This will add the pipeline to the cache and queue it's creation
             .queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("post_process_pipeline".into()),
-                layout: vec![layout.clone()],
+                layout: vec![screen_layout.clone(), density_layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
                 vertex: fullscreen_shader_vertex_state(),
                 fragment: Some(FragmentState {
@@ -291,8 +340,10 @@ impl FromWorld for PostProcessPipeline {
             });
 
         Self {
-            layout,
-            sampler,
+            screen_layout,
+            screen_sampler,
+            density_layout,
+            density_sampler,
             pipeline_id,
         }
     }

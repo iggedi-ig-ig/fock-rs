@@ -2,6 +2,7 @@ use std::{ops::Deref, time::Instant};
 
 use bevy::{
     prelude::*,
+    render::render_resource::Texture,
     tasks::{AsyncComputeTaskPool, Task},
 };
 use futures_lite::future;
@@ -105,5 +106,22 @@ fn handle_density_tasks(
 
             commands.entity(entity).despawn_recursive();
         }
+    }
+}
+
+#[derive(Resource, Deref)]
+pub struct Density3dTexture(Handle<Image>);
+
+fn update_3d_texture(
+    mut density_texture: ResMut<Density3dTexture>,
+    mut images: ResMut<Assets<Image>>,
+    density_buffer: Res<DensityBuffer>,
+) {
+    if density_buffer.is_changed() {
+        if let Some(_) = images.get(&**density_texture) {
+            images.remove(**density_texture);
+        }
+
+        
     }
 }
