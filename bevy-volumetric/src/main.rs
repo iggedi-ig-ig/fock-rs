@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, mut molecule: ResMut<LoadedMolecule>) {
 
     molecule.load(
         chemfiles::xyz::read_xyz_file(
-            "chemfiles/molecules/water.xyz",
+            "chemfiles/molecules/benzene.xyz",
             &basis_set::basis_sets::BASIS_STO_3G,
         )
         .expect("failed to read molecule"),

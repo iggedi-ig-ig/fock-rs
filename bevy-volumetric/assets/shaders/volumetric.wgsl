@@ -6,6 +6,7 @@
 
 struct VolumetricSettings {
     resolution: u32,
+    density_multiplier: f32,
     box_size: f32,
     box_min: vec3<f32>,
     box_max: vec3<f32>,
@@ -38,7 +39,7 @@ fn linearize_depth(d: f32, near: f32) -> f32 {
     return near / d;
 }
 
-const ITERATIONS: i32 = 100;
+const ITERATIONS: i32 = 500;
 
 @fragment
 fn fragment(
@@ -63,7 +64,7 @@ fn fragment(
          
         
         let density = textureSample(density_texture, density_sampler, remapped_to_box).x;
-        let prob = density * density * 15.0;
+        let prob = density * density * settings.density_multiplier;
 
         let transmittance = exp(-cum_density);
 

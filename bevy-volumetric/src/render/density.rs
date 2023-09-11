@@ -5,7 +5,7 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-        texture::{ImageType, TextureFormatPixelInfo},
+        texture::TextureFormatPixelInfo,
     },
     tasks::{AsyncComputeTaskPool, Task},
 };
@@ -14,10 +14,7 @@ use nalgebra::Vector3;
 
 use crate::hf::ConvergedScf;
 
-use super::{
-    volume::{self, VolumetricSettings},
-    RenderSettings,
-};
+use super::{volume::VolumetricSettings, RenderSettings};
 
 #[derive(Resource, Default, Debug)]
 pub struct DensityBuffer(Vec<Option<Vec<f32>>>);
@@ -26,12 +23,6 @@ impl DensityBuffer {
     pub fn allocate(size: usize) -> Self {
         Self(vec![None; size])
     }
-
-    // pub fn allocate_level(&mut self, n: usize) -> &mut Vec<f32> {
-    //     let capacity = n.pow(3);
-    //     self.0[n] = Some(vec![0.0; capacity]);
-    //     self.0[n].as_mut().unwrap()
-    // }
 
     pub fn level_mut(&mut self, n: usize) -> &mut Option<Vec<f32>> {
         &mut self.0[n]
@@ -133,7 +124,10 @@ fn update_3d_texture(
     render_settings: Res<RenderSettings>,
     density_buffer: Res<DensityBuffer>,
 ) {
-    if density_buffer.is_changed() || volumetric_settings.is_changed() {
+    if density_buffer.is_changed()
+        || volumetric_settings.is_changed()
+        || render_settings.is_changed()
+    {
         let mut image = Image::default();
         image.texture_descriptor.format = TextureFormat::R32Float;
         image.texture_descriptor.dimension = TextureDimension::D3;

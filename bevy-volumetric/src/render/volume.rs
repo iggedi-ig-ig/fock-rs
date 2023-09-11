@@ -1,4 +1,5 @@
 use bevy::{
+    input::keyboard,
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
     reflect::{TypePath, TypeUuid},
@@ -16,7 +17,7 @@ impl Plugin for VolumeRenderPlugin {
             ..Default::default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, update_density_texture)
+        .add_systems(Update, (update_density_texture, update_density_multiplier))
         .init_resource::<VolumetricSettings>();
     }
 }
@@ -44,6 +45,24 @@ fn setup(
     ));
 }
 
+fn update_density_multiplier(
+    mut materials: ResMut<Assets<VolumetricMaterial>>,
+    volume_materials: Query<&Handle<VolumetricMaterial>>,
+    keys: Res<Input<KeyCode>>,
+) {
+    for material in &volume_materials {
+        if let Some(material) = materials.get_mut(material) {
+            if keys.just_pressed(KeyCode::Up) {
+                material.settings.density_multiplier *= 2.0;
+            }
+
+            if keys.just_pressed(KeyCode::Down) {
+                material.settings.density_multiplier /= 2.0;
+            }
+        }
+    }
+}
+
 fn update_density_texture(
     mut materials: ResMut<Assets<VolumetricMaterial>>,
     density_texture: Res<Density3dTexture>,
@@ -66,18 +85,20 @@ fn update_density_texture(
 #[derive(Resource, Debug, Copy, Clone, ShaderType)]
 pub struct VolumetricSettings {
     pub resolution: u32,
+    pub density_multiplier: f32,
     pub box_min: Vec3,
     pub box_max: Vec3,
 }
 
 impl VolumetricSettings {
-    pub const SCALE: f32 = 10.0;
+    pub const SCALE: f32 = 15.0;
 }
 
 impl Default for VolumetricSettings {
     fn default() -> Self {
         Self {
             resolution: 100,
+            density_multiplier: 16.0,
             box_min: -Vec3::ONE * Self::SCALE * 0.5,
             box_max: Vec3::ONE * Self::SCALE * 0.5,
         }
