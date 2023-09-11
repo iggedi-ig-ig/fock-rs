@@ -5,6 +5,8 @@ use bevy::{
     render::render_resource::{AsBindGroup, ShaderType},
 };
 
+use super::density::Density3dTexture;
+
 pub struct VolumeRenderPlugin;
 
 impl Plugin for VolumeRenderPlugin {
@@ -13,7 +15,9 @@ impl Plugin for VolumeRenderPlugin {
             prepass_enabled: false,
             ..Default::default()
         })
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_density_texture)
+        .init_resource::<VolumetricSettings>();
     }
 }
 
@@ -21,19 +25,18 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<VolumetricMaterial>>,
+    settings: Res<VolumetricSettings>,
 ) {
+    let scale = settings.box_max - settings.box_min;
+
     commands.spawn((
         MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(shape::Cube::default())),
             material: materials.add(VolumetricMaterial {
-                settings: VolumetricSettings {
-                    resolution: 100,
-                    box_size: 10.0,
-                },
+                settings: *settings,
+                density_texture: None,
             }),
-            transform: Transform::IDENTITY
-                .with_translation(-Vec3::ONE * 0.5)
-                .with_scale(Vec3::ONE * 10.0),
+            transform: Transform::from_scale(scale),
             ..Default::default()
         },
         NotShadowCaster,
@@ -41,10 +44,44 @@ fn setup(
     ));
 }
 
-#[derive(Debug, Clone, Default, ShaderType)]
+fn update_density_texture(
+    mut materials: ResMut<Assets<VolumetricMaterial>>,
+    density_texture: Res<Density3dTexture>,
+    volume_materials: Query<&Handle<VolumetricMaterial>>,
+) {
+    if !density_texture.is_changed() {
+        return;
+    }
+
+    for volume_material in &volume_materials {
+        let Some(material) = materials.get_mut(volume_material) else {
+            continue;
+        };
+
+        info!("update density texture");
+        material.density_texture = Some((**density_texture).clone());
+    }
+}
+
+#[derive(Resource, Debug, Copy, Clone, ShaderType)]
 pub struct VolumetricSettings {
-    resolution: u32,
-    box_size: f32,
+    pub resolution: u32,
+    pub box_min: Vec3,
+    pub box_max: Vec3,
+}
+
+impl VolumetricSettings {
+    pub const SCALE: f32 = 10.0;
+}
+
+impl Default for VolumetricSettings {
+    fn default() -> Self {
+        Self {
+            resolution: 100,
+            box_min: -Vec3::ONE * Self::SCALE * 0.5,
+            box_max: Vec3::ONE * Self::SCALE * 0.5,
+        }
+    }
 }
 
 #[derive(TypePath, TypeUuid, AsBindGroup, Debug, Clone)]
@@ -52,6 +89,9 @@ pub struct VolumetricSettings {
 pub struct VolumetricMaterial {
     #[uniform(0)]
     settings: VolumetricSettings,
+    #[texture(1, dimension = "3d")]
+    #[sampler(2)]
+    density_texture: Option<Handle<Image>>,
 }
 
 impl Material for VolumetricMaterial {

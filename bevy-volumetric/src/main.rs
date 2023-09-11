@@ -2,14 +2,26 @@ pub mod hf;
 pub mod molecule;
 pub mod render;
 
-use bevy::{core_pipeline::prepass::DepthPrepass, prelude::*};
+use std::time::Duration;
+
+use bevy::{asset::ChangeWatcher, core_pipeline::prepass::DepthPrepass, prelude::*};
 use hf::HfPlugin;
 use molecule::{LoadedMolecule, MoleculeLoaderPlugin};
 use render::RenderPlugin;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MoleculeLoaderPlugin, RenderPlugin, HfPlugin))
+        .add_plugins((
+            DefaultPlugins.set(AssetPlugin {
+                watch_for_changes: Some(ChangeWatcher {
+                    delay: Duration::from_millis(250),
+                }),
+                ..Default::default()
+            }),
+            MoleculeLoaderPlugin,
+            RenderPlugin,
+            HfPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(Update, update_cam_pos)
         .insert_resource(ClearColor(Color::GRAY))

@@ -5,6 +5,7 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
+        texture::{ImageType, TextureFormatPixelInfo},
     },
     tasks::{AsyncComputeTaskPool, Task},
 };
@@ -13,9 +14,12 @@ use nalgebra::Vector3;
 
 use crate::hf::ConvergedScf;
 
-use super::RenderSettings;
+use super::{
+    volume::{self, VolumetricSettings},
+    RenderSettings,
+};
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Debug)]
 pub struct DensityBuffer(Vec<Option<Vec<f32>>>);
 
 impl DensityBuffer {
@@ -34,7 +38,7 @@ impl DensityBuffer {
     }
 
     pub fn level(&self, n: usize) -> Option<&[f32]> {
-        self.0[n].as_deref()
+        self.0.get(n).and_then(|x| x.as_deref())
     }
 }
 
@@ -62,10 +66,9 @@ struct UpdateDensityTask {
 fn update_densities(
     mut commands: Commands,
     mut density_buffer: ResMut<DensityBuffer>,
+    volumetric_settings: Res<VolumetricSettings>,
     converged: Res<ConvergedScf>,
-    settings: Query<&RenderSettings>,
 ) {
-    let settings = settings.single();
     let pool = AsyncComputeTaskPool::get();
 
     if converged.is_changed() {
@@ -74,7 +77,8 @@ fn update_densities(
         };
 
         *density_buffer = DensityBuffer::allocate(result.n_basis);
-        let res = settings.density_resolution as usize;
+        let res = volumetric_settings.resolution as usize;
+        let size = volumetric_settings.box_max - volumetric_settings.box_min;
 
         for energy_level in 0..result.n_basis {
             let orbitals = result.orbitals.clone();
@@ -89,6 +93,8 @@ fn update_densities(
                         let z = i / res.pow(2);
 
                         let at = Vector3::new(x, y, z).map(|x| x as f64 / res as f64 - 0.5);
+                        let at =
+                            at.component_mul(&Vector3::new(size.x as _, size.y as _, size.z as _));
                         *entry = orbitals[energy_level].evaluate(&at) as f32;
                     }
                     output
@@ -123,26 +129,32 @@ pub struct Density3dTexture(Handle<Image>);
 fn update_3d_texture(
     mut density_texture: ResMut<Density3dTexture>,
     mut images: ResMut<Assets<Image>>,
-    render_settings: Query<&RenderSettings>,
+    volumetric_settings: Res<VolumetricSettings>,
+    render_settings: Res<RenderSettings>,
     density_buffer: Res<DensityBuffer>,
 ) {
-    if density_buffer.is_changed() {
-        let render_settings = render_settings.single();
-        if images.contains(&density_texture.0) {
-            images.remove(density_texture.0.clone());
+    if density_buffer.is_changed() || volumetric_settings.is_changed() {
+        let mut image = Image::default();
+        image.texture_descriptor.format = TextureFormat::R32Float;
+        image.texture_descriptor.dimension = TextureDimension::D3;
+        image.resize(Extent3d {
+            width: volumetric_settings.resolution,
+            height: volumetric_settings.resolution,
+            depth_or_array_layers: volumetric_settings.resolution,
+        });
+
+        let Some(data) = density_buffer.level(render_settings.current_energy_level as _) else {
+            return;
+        };
+        for (i, pixel) in image
+            .data
+            .chunks_exact_mut(image.texture_descriptor.format.pixel_size())
+            .enumerate()
+        {
+            pixel.copy_from_slice(&data[i].to_le_bytes())
         }
 
-        let mut image = Image::new_fill(
-            Extent3d {
-                width: render_settings.density_resolution,
-                height: render_settings.density_resolution,
-                depth_or_array_layers: render_settings.density_resolution,
-            },
-            TextureDimension::D3,
-            &(0.0_f32).to_be_bytes(),
-            TextureFormat::R32Float,
-        );
-        image.texture_descriptor.usage = TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING;
+        image.texture_descriptor.usage = TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING;
         **density_texture = images.add(image);
     }
 }
