@@ -11,4 +11,4 @@ basis_set = { path = "../basis_set" }
 futures-lite = "1.13"
 scf = { path = "../scf" }
 nalgebra = "0.30.1"
-bevy = "0.11"
+bevy = "0.11.2"

@@ -2,7 +2,7 @@ pub mod hf;
 pub mod molecule;
 pub mod render;
 
-use bevy::prelude::*;
+use bevy::{core_pipeline::prepass::DepthPrepass, prelude::*};
 use hf::HfPlugin;
 use molecule::{LoadedMolecule, MoleculeLoaderPlugin};
 use render::RenderPlugin;
@@ -17,10 +17,13 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut molecule: ResMut<LoadedMolecule>) {
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.0, -20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 10.0, -20.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..Default::default()
+        },
+        DepthPrepass,
+    ));
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             color: Color::WHITE,
@@ -33,8 +36,8 @@ fn setup(mut commands: Commands, mut molecule: ResMut<LoadedMolecule>) {
 
     molecule.load(
         chemfiles::xyz::read_xyz_file(
-            "chemfiles/molecules/benzene.xyz",
-            &basis_set::basis_sets::BASIS_6_31G,
+            "chemfiles/molecules/water.xyz",
+            &basis_set::basis_sets::BASIS_STO_3G,
         )
         .expect("failed to read molecule"),
     );

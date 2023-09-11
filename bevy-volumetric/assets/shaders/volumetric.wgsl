@@ -1,58 +1,22 @@
-// This shader computes the chromatic aberration effect
+#import bevy_pbr::mesh_types
+#import bevy_pbr::mesh_view_bindings  globals
+#import bevy_pbr::prepass_utils
+#import bevy_pbr::mesh_vertex_output  MeshVertexOutput
+#import bevy_pbr::pbr_functions as pbr_functions
 
-#import bevy_pbr::utils
-
-// Since post processing is a fullscreen effect, we use the fullscreen vertex shader provided by bevy.
-// This will import a vertex shader that renders a single fullscreen triangle.
-//
-// A fullscreen triangle is a single triangle that covers the entire screen.
-// The box in the top left in that diagram is the screen. The 4 x are the corner of the screen
-//
-// Y axis
-//  1 |  x-----x......
-//  0 |  |  s  |  . ´
-// -1 |  x_____x´
-// -2 |  :  .´
-// -3 |  :´
-//    +---------------  X axis
-//      -1  0  1  2  3
-//
-// As you can see, the triangle ends up bigger than the screen.
-//
-// You don't need to worry about this too much since bevy will compute the correct UVs for you.
-#import bevy_core_pipeline::fullscreen_vertex_shader FullscreenVertexOutput
-
-@group(0) @binding(0)
-var screen_texture: texture_2d<f32>;
-@group(0) @binding(1)
-var texture_sampler: sampler;
-@group(1) @binding(0)
-var density_texture: texture_storage_3d<r32float, read>;
-@group(1) @binding(1)
-var density_sampler: sampler;
-
-struct RenderSettings {
-    energy_level: u32,
-    density_resolution: u32,
-    density_scale: f32,
+struct VolumetricSettings {
+    resolution: u32,
+    box_size: f32
 }
-
-@group(0) @binding(2)
-var<uniform> settings: RenderSettings;
+@group(1) @binding(0)
+var<uniform> settings: VolumetricSettings;
 
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    // Chromatic aberration strength
-    let offset_strength = settings.density_scale / f32(settings.density_resolution);
-    
-    let test = textureLoad(density_texture, vec3<i32>(0)).r;
-
-    return vec4<f32>(vec3<f32>(mix(vec3<f32>(test), textureSample(screen_texture, texture_sampler, in.uv).rgb, vec3<f32>(0.5))), 1.0); 
-    // // Sample each color channel with an arbitrary shift
-    // return vec4<f32>(
-    //     textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(offset_strength, -offset_strength)).r,
-    //     textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(-offset_strength, 0.0)).g,
-    //     textureSample(screen_texture, texture_sampler, in.uv + vec2<f32>(0.0, offset_strength)).b,
-    //     1.0
-    // );
+fn fragment(
+    mesh: MeshVertexOutput,
+) -> @location(0) vec4<f32> {
+    let depth = bevy_pbr::prepass_utils::prepass_depth(mesh.position, 0u);
+    let v = pbr_functions::calculate_view(mesh.world_position, false);
+    let start = v * depth;
+    return vec4(vec3(depth), 1.0);
 }
