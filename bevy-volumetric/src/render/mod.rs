@@ -39,7 +39,7 @@ fn update_energy_level(
             render_settings.current_energy_level = render_settings
                 .current_energy_level
                 .checked_sub(1)
-                .unwrap_or(sol.n_basis as _);
+                .unwrap_or(sol.n_basis as u32 - 1);
         }
         if keys.just_pressed(KeyCode::Right) {
             render_settings.current_energy_level =

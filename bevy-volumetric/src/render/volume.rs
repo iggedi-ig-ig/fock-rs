@@ -1,5 +1,4 @@
 use bevy::{
-    input::keyboard,
     pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
     reflect::{TypePath, TypeUuid},
@@ -97,7 +96,7 @@ impl VolumetricSettings {
 impl Default for VolumetricSettings {
     fn default() -> Self {
         Self {
-            resolution: 100,
+            resolution: 200,
             density_multiplier: 16.0,
             box_min: -Vec3::ONE * Self::SCALE * 0.5,
             box_max: Vec3::ONE * Self::SCALE * 0.5,

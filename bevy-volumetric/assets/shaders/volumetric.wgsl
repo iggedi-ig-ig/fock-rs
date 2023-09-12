@@ -39,7 +39,7 @@ fn linearize_depth(d: f32, near: f32) -> f32 {
     return near / d;
 }
 
-const ITERATIONS: i32 = 500;
+const ITERATIONS: i32 = 200;
 
 @fragment
 fn fragment(
@@ -55,28 +55,19 @@ fn fragment(
     let step_size = through_box / f32(ITERATIONS);
 
     
-    var acc_pos = 0.0; 
-    var acc_neg = 0.0;
     var cum_density = 0.0;
+    var color = vec3(0.0);
     for (var i = 0; i < ITERATIONS; i++) {
         let p = view.world_position + v * (intersection.x + f32(i) * step_size);
-        let remapped_to_box = (p - settings.box_min) / (settings.box_max - settings.box_min);
-         
+        let remapped_p = (p - settings.box_min) / (settings.box_max - settings.box_min);
         
-        let density = textureSample(density_texture, density_sampler, remapped_to_box).x;
+        let density = textureSample(density_texture, density_sampler, remapped_p).x;
         let prob = density * density * settings.density_multiplier;
 
         let transmittance = exp(-cum_density);
-
-        acc_pos += max(0.0, density) * transmittance; 
-        acc_neg -= min(0.0, density) * transmittance;
         cum_density += prob * step_size;
+        color += select(vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(density > 0.0)) * prob * transmittance;
     }
 
-    let positive = acc_pos / (acc_pos + acc_neg + 0.1);
-    let negative = acc_neg / (acc_pos + acc_neg + 0.1);
-
-    let wave_color = mix(vec3(min(1.0, negative), 0.0, 0.0), vec3(0.0, 0.0, min(1.0, positive)), positive / max(1e-6, positive + negative));
-
-    return vec4(wave_color, cum_density);
+    return vec4(color * step_size, cum_density);
 }

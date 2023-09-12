@@ -4,7 +4,10 @@ pub mod render;
 
 use std::time::Duration;
 
-use bevy::{asset::ChangeWatcher, core_pipeline::prepass::DepthPrepass, prelude::*};
+use bevy::{
+    asset::ChangeWatcher, core::TaskPoolThreadAssignmentPolicy,
+    core_pipeline::prepass::DepthPrepass, prelude::*,
+};
 use hf::HfPlugin;
 use molecule::{LoadedMolecule, MoleculeLoaderPlugin};
 use render::RenderPlugin;
@@ -12,12 +15,23 @@ use render::RenderPlugin;
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(AssetPlugin {
-                watch_for_changes: Some(ChangeWatcher {
-                    delay: Duration::from_millis(250),
+            DefaultPlugins
+                .set(AssetPlugin {
+                    watch_for_changes: Some(ChangeWatcher {
+                        delay: Duration::from_millis(250),
+                    }),
+                    ..Default::default()
+                })
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        async_compute: TaskPoolThreadAssignmentPolicy {
+                            min_threads: 16,
+                            max_threads: 32,
+                            percent: 0.75,
+                        },
+                        ..Default::default()
+                    },
                 }),
-                ..Default::default()
-            }),
             MoleculeLoaderPlugin,
             RenderPlugin,
             HfPlugin,
@@ -49,7 +63,7 @@ fn setup(mut commands: Commands, mut molecule: ResMut<LoadedMolecule>) {
     molecule.load(
         chemfiles::xyz::read_xyz_file(
             "chemfiles/molecules/benzene.xyz",
-            &basis_set::basis_sets::BASIS_STO_3G,
+            &basis_set::basis_sets::BASIS_6_311G,
         )
         .expect("failed to read molecule"),
     );
