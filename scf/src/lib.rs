@@ -1,11 +1,12 @@
 pub mod molecular_orbitals;
 pub mod utils;
 
-use crate::{molecular_orbitals::MolecularOrbitals, utils::diis};
+use crate::molecular_orbitals::MolecularOrbitals;
 use basis::contracted_gaussian::ContractedGaussian;
 use basis::electron_tensor::ElectronTensor;
 use basis::BasisFunction;
 use basis_set::atom::Atom;
+use itertools::iproduct;
 use log::{debug, info, trace, warn};
 use nalgebra::{DMatrix, DVector};
 use std::{collections::VecDeque, time::Instant};
@@ -165,15 +166,9 @@ where
 
         // precompute multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)]
         let mut electron_terms = vec![0.0; n_basis.pow(4)];
-        for j in 0..n_basis {
-            for i in 0..n_basis {
-                for x in 0..n_basis {
-                    for y in 0..n_basis {
-                        electron_terms[j * n_basis.pow(3) + i * n_basis.pow(2) + y * n_basis + x] =
-                            multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)];
-                    }
-                }
-            }
+        for (j, i, y, x) in iproduct!(0..n_basis, 0..n_basis, 0..n_basis, 0..n_basis) {
+            electron_terms[j * n_basis.pow(3) + i * n_basis.pow(2) + y * n_basis + x] =
+                multi[(i, j, x, y)] - 0.5 * multi[(i, x, j, y)];
         }
         drop(multi);
 
@@ -207,7 +202,7 @@ where
             let fock = if previous_focks.len() < 5 {
                 previous_focks.back().unwrap().clone()
             } else {
-                diis(&previous_erros, &previous_focks)
+                utils::diis(&previous_erros, &previous_focks)
                     .unwrap_or_else(|| previous_focks.back().unwrap().clone())
             };
             // DIIS end
